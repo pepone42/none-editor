@@ -1,0 +1,7 @@
+[target.x86_64-pc-windows-msvc.sdl2]
+rustc-link-search = ["."]
+rustc-link-lib = ["sdl2"]
+
+[target.x86_64-pc-windows-msvc.sdl2_ttf]
+rustc-link-search = ["."]
+rustc-link-lib = ["sdl2_ttf"]

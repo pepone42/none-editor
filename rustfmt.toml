@@ -1,0 +1,7 @@
+# Maximum width of each line.
+# Default: 100
+#max_width = 140
+
+# Ideal width of each line.
+# Default: 80
+max_width = 120
