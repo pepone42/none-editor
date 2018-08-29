@@ -1,7 +1,9 @@
-use buffer::Buffer;
 use std::cell::RefCell;
 use std::ops::Range;
 use std::rc::Rc;
+
+use buffer::Buffer;
+use keybinding::KeyBinding;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Direction {
@@ -342,6 +344,13 @@ impl View {
             }
         }
     }
+}
+
+pub trait ViewCmd {
+    fn name(&self) -> &'static str;
+    fn desc(&self) ->  &'static str;
+    fn keybinding(&self) -> KeyBinding;
+    fn run(&mut self,&mut View);
 }
 
 #[cfg(test)]

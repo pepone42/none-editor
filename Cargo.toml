@@ -10,6 +10,8 @@ num = "0.2.0"
 clipboard2 = "0.1.0"
 euclid = "0.19.0"
 rect_packer = "0.2.1"
+lazy_static = "1.1.0"
+bitflags = "1.0"
 # [dependencies.nanovg]
 # version = "0.4.2"
 # features = ["gl3"]

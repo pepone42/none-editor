@@ -5,11 +5,18 @@ extern crate sdl2;
 extern crate num;
 extern crate clipboard2;
 extern crate rect_packer;
+#[macro_use]
+extern crate lazy_static;
+#[macro_use]
+extern crate bitflags;
+
 
 mod buffer;
 mod view;
 mod window;
 mod fontcache;
+mod commands;
+mod keybinding;
 
 use std::env;
 

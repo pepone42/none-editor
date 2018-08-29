@@ -1,9 +1,10 @@
+
 use std::cell::RefCell;
 use std::ops::Range;
 use std::path::Path;
 use std::rc::Rc;
 use std::{thread,time};
-use view::{Direction, View};
+use std::collections::HashMap;
 
 use clipboard2::{Clipboard, SystemClipboard};
 use sdl2;
@@ -14,6 +15,11 @@ use sdl2::ttf::Font;
 
 use buffer::Buffer;
 use fontcache::GlyphCache;
+use commands;
+use view::{Direction, View};
+use view::ViewCmd;
+use keybinding;
+use keybinding::KeyBinding;
 
 pub enum DisplayCommand {
     Move(i32, i32),
@@ -168,7 +174,7 @@ impl EditorWindow {
     }
 }
 
-pub fn start<P: AsRef<Path>>(width: usize, height: usize, file: Option<P>) {
+pub fn start<P: AsRef<Path>>(mut width: usize, mut height: usize, file: Option<P>) {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let display = video_subsystem
@@ -197,11 +203,11 @@ pub fn start<P: AsRef<Path>>(width: usize, height: usize, file: Option<P>) {
     let mut font = ttf_context
         .load_font_from_rwops(sdl2::rwops::RWops::from_bytes(font_data).unwrap(), FONT_SIZE)
         .unwrap();
-    font.set_hinting(sdl2::ttf::Hinting::Light);
+    font.set_hinting(sdl2::ttf::Hinting::Normal);
     font.set_style(sdl2::ttf::STYLE_BOLD);
     //let _font = nanovg::Font::from_memory(&nanovg, "Mono", b).expect("Failed to load font");
 
-    let (mut width, mut height) = (width, height);
+    //let (mut width, mut height) = (width, height);
     let font_height = font.recommended_line_spacing(); //font.height();
 
     //let mut cache: HashMap<char, GlyphSurface> = HashMap::new();
@@ -215,6 +221,12 @@ pub fn start<P: AsRef<Path>>(width: usize, height: usize, file: Option<P>) {
 
     let mut win = EditorWindow::new(width, height, font_height as _, file);
 
+    let mut view_cmd = commands::view::get_all();
+    let mut cmd_keybinding = HashMap::<KeyBinding,&mut ViewCmd>::new();
+    for mut cmd in &mut view_cmd {
+        cmd_keybinding.insert(cmd.keybinding(), cmd.as_mut());
+    }
+
     let mut display_list = Vec::<DisplayCommand>::new();
 
     let clipboard = SystemClipboard::new().unwrap();
@@ -226,6 +238,23 @@ pub fn start<P: AsRef<Path>>(width: usize, height: usize, file: Option<P>) {
     'mainloop: loop {
         for event in event_pump.poll_iter() {
             redraw = true;
+            match event { Event::KeyDown{keycode: Some(k),keymod,
+                    ..} => {
+                let mut km = keybinding::Mod::NONE;
+                if keymod.intersects(sdl2::keyboard::LCTRLMOD | sdl2::keyboard::RCTRLMOD) {
+                    km |= keybinding::Mod::CTRL
+                }
+                if keymod.intersects(sdl2::keyboard::LALTMOD | sdl2::keyboard::RALTMOD) {
+                    km |= keybinding::Mod::ALT
+                }
+                if keymod.intersects(sdl2::keyboard::LSHIFTMOD | sdl2::keyboard::RSHIFTMOD) {
+                    km |= keybinding::Mod::SHIFT
+                }
+                if let Some(mut cmd) = cmd_keybinding.get_mut(&KeyBinding::new(k, km)) {
+                    cmd.run(&mut win.views[win.current_view]);
+                }}, 
+                _ => (),
+            }
             #[cfg_attr(rustfmt, rustfmt_skip)]
             match event {
                 Event::KeyDown {
@@ -259,8 +288,8 @@ pub fn start<P: AsRef<Path>>(width: usize, height: usize, file: Option<P>) {
                         Keycode::Tab => win.insert_char('\t'),
                         Keycode::PageUp => win.move_page(Direction::Up),
                         Keycode::PageDown => win.move_page(Direction::Down),
-                        Keycode::Home => win.home(),
-                        Keycode::End => win.end(),
+                        //Keycode::Home => win.home(),
+                        //Keycode::End => win.end(),
                         Keycode::C if keymod.contains(sdl2::keyboard::LCTRLMOD) || keymod.contains(sdl2::keyboard::RCTRLMOD) => {
                             if let Some(s) = win.get_selection() {
                                 clipboard.set_string_contents(s).unwrap();
@@ -276,9 +305,9 @@ pub fn start<P: AsRef<Path>>(width: usize, height: usize, file: Option<P>) {
                             win.insert(&s);
                             //println!("{:?}",s );
                             },
-                        Keycode::Z if keymod.contains(sdl2::keyboard::LCTRLMOD) || keymod.contains(sdl2::keyboard::RCTRLMOD) => {
-                            win.undo();
-                            },
+                        // Keycode::Z if keymod.contains(sdl2::keyboard::LCTRLMOD) || keymod.contains(sdl2::keyboard::RCTRLMOD) => {
+                        //     win.undo();
+                        //     },
                         Keycode::Y if keymod.contains(sdl2::keyboard::LCTRLMOD) || keymod.contains(sdl2::keyboard::RCTRLMOD) => {
                             win.redo();
                             },
