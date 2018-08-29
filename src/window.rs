@@ -6,7 +6,6 @@ use std::rc::Rc;
 use std::{thread,time};
 use std::collections::HashMap;
 
-use clipboard2::{Clipboard, SystemClipboard};
 use sdl2;
 use sdl2::event::{Event, WindowEvent};
 use sdl2::keyboard::Keycode;
@@ -17,7 +16,6 @@ use buffer::Buffer;
 use fontcache::GlyphCache;
 use commands;
 use view::{Direction, View};
-use view::ViewCmd;
 use keybinding;
 use keybinding::KeyBinding;
 
@@ -222,14 +220,16 @@ pub fn start<P: AsRef<Path>>(mut width: usize, mut height: usize, file: Option<P
     let mut win = EditorWindow::new(width, height, font_height as _, file);
 
     let mut view_cmd = commands::view::get_all();
-    let mut cmd_keybinding = HashMap::<KeyBinding,&mut ViewCmd>::new();
-    for mut cmd in &mut view_cmd {
-        cmd_keybinding.insert(cmd.keybinding(), cmd.as_mut());
+    let mut cmd_keybinding = HashMap::<KeyBinding,usize>::new();
+    
+    for i in 0 .. view_cmd.len() {
+        for kb in view_cmd[i].keybinding() {
+            cmd_keybinding.insert(kb, i);
+        }
     }
 
     let mut display_list = Vec::<DisplayCommand>::new();
 
-    let clipboard = SystemClipboard::new().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
 
     //canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
@@ -250,8 +250,8 @@ pub fn start<P: AsRef<Path>>(mut width: usize, mut height: usize, file: Option<P
                 if keymod.intersects(sdl2::keyboard::LSHIFTMOD | sdl2::keyboard::RSHIFTMOD) {
                     km |= keybinding::Mod::SHIFT
                 }
-                if let Some(mut cmd) = cmd_keybinding.get_mut(&KeyBinding::new(k, km)) {
-                    cmd.run(&mut win.views[win.current_view]);
+                if let Some(cmdid) = cmd_keybinding.get(&KeyBinding::new(k, km)) {
+                    view_cmd[*cmdid].as_mut().run(&mut win.views[win.current_view]);
                 }}, 
                 _ => (),
             }
@@ -278,39 +278,39 @@ pub fn start<P: AsRef<Path>>(mut width: usize, mut height: usize, file: Option<P
                 | Event::KeyUp { keycode: Some(Keycode::RShift), .. } => win.end_selection(),
                 Event::KeyDown { keycode: Some(keycode), keymod, ..} => {
                     match keycode {
-                        Keycode::KpEnter |Keycode::Return => win.insert_char('\n'),
+                        //Keycode::KpEnter |Keycode::Return => win.insert_char('\n'),
                         Keycode::Up => win.move_cursor(Direction::Up),
                         Keycode::Down => win.move_cursor(Direction::Down),
                         Keycode::Right => win.move_cursor(Direction::Right),
                         Keycode::Left => win.move_cursor(Direction::Left),
-                        Keycode::Backspace => win.backspace(),
-                        Keycode::Delete => win.delete(),
-                        Keycode::Tab => win.insert_char('\t'),
+                        // Keycode::Backspace => win.backspace(),
+                        // Keycode::Delete => win.delete(),
+                        //Keycode::Tab => win.insert_char('\t'),
                         Keycode::PageUp => win.move_page(Direction::Up),
                         Keycode::PageDown => win.move_page(Direction::Down),
                         //Keycode::Home => win.home(),
                         //Keycode::End => win.end(),
-                        Keycode::C if keymod.contains(sdl2::keyboard::LCTRLMOD) || keymod.contains(sdl2::keyboard::RCTRLMOD) => {
-                            if let Some(s) = win.get_selection() {
-                                clipboard.set_string_contents(s).unwrap();
-                            }},
-                        Keycode::X if keymod.contains(sdl2::keyboard::LCTRLMOD) || keymod.contains(sdl2::keyboard::RCTRLMOD) => {
-                            if let Some(s) = win.get_selection() {
-                                println!("{:?}",s );
-                                clipboard.set_string_contents(s).unwrap();
-                                win.delete();
-                            }},
-                        Keycode::V if keymod.contains(sdl2::keyboard::LCTRLMOD) || keymod.contains(sdl2::keyboard::RCTRLMOD) => {
-                            let s = clipboard.get_string_contents().unwrap();
-                            win.insert(&s);
-                            //println!("{:?}",s );
-                            },
+                        // Keycode::C if keymod.contains(sdl2::keyboard::LCTRLMOD) || keymod.contains(sdl2::keyboard::RCTRLMOD) => {
+                        //     if let Some(s) = win.get_selection() {
+                        //         clipboard.set_string_contents(s).unwrap();
+                        //     }},
+                        // Keycode::X if keymod.contains(sdl2::keyboard::LCTRLMOD) || keymod.contains(sdl2::keyboard::RCTRLMOD) => {
+                        //     if let Some(s) = win.get_selection() {
+                        //         println!("{:?}",s );
+                        //         clipboard.set_string_contents(s).unwrap();
+                        //         win.delete();
+                        //     }},
+                        // Keycode::V if keymod.contains(sdl2::keyboard::LCTRLMOD) || keymod.contains(sdl2::keyboard::RCTRLMOD) => {
+                        //     let s = clipboard.get_string_contents().unwrap();
+                        //     win.insert(&s);
+                        //     //println!("{:?}",s );
+                        //     },
                         // Keycode::Z if keymod.contains(sdl2::keyboard::LCTRLMOD) || keymod.contains(sdl2::keyboard::RCTRLMOD) => {
                         //     win.undo();
                         //     },
-                        Keycode::Y if keymod.contains(sdl2::keyboard::LCTRLMOD) || keymod.contains(sdl2::keyboard::RCTRLMOD) => {
-                            win.redo();
-                            },
+                        // Keycode::Y if keymod.contains(sdl2::keyboard::LCTRLMOD) || keymod.contains(sdl2::keyboard::RCTRLMOD) => {
+                        //     win.redo();
+                        //     },
                         _ => (),
                     }
                 },

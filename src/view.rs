@@ -335,7 +335,7 @@ impl View {
     fn expand_selection(&mut self) {
         self.selection = match self.selection {
             None => Some(self.selection_start..self.cursor),
-            Some(Range { start, end }) => {
+            Some(_) => {
                 if self.selection_start < self.cursor {
                     Some(self.selection_start..self.cursor)
                 } else {
@@ -349,7 +349,7 @@ impl View {
 pub trait ViewCmd {
     fn name(&self) -> &'static str;
     fn desc(&self) ->  &'static str;
-    fn keybinding(&self) -> KeyBinding;
+    fn keybinding(&self) -> Vec<KeyBinding>;
     fn run(&mut self,&mut View);
 }
 
