@@ -22,8 +22,6 @@ pub struct GlyphCache<'t,'ttf_context, 'rwops> {
     packers: Vec<rect_packer::DensePacker>,
     glyphs: HashMap<(char, Color), CachedGlyph>,
     size: u32,
-    x: u32,
-    y: u32,
     pub font: Font<'ttf_context,'rwops>,
 }
 
@@ -35,8 +33,6 @@ impl<'t,'ttf_context,'rwops> GlyphCache<'t,'ttf_context,'rwops> {
             packers: Vec::new(),
             glyphs: HashMap::new(),
             size,
-            x: 0,
-            y: 0,
             font,
         }
     }
