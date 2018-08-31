@@ -79,7 +79,7 @@ impl EditorWindow {
         let adv = font.find_glyph_metrics(' ').unwrap().advance;
 
         // todo: refactor to not use buffer[0]
-        let b = self.buffers[0].borrow();
+        let b = self.views[self.current_view].buffer.borrow();
         let first_char = b.line_to_char(self.views[self.current_view].first_visible_line());
         let mut idx = first_char;
 

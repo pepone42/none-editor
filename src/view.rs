@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::ops::Range;
 use std::rc::Rc;
 
+use buffer;
 use buffer::Buffer;
 use keybinding::KeyBinding;
 
@@ -64,7 +65,7 @@ impl UndoStack {
 
 #[derive(Debug)]
 pub struct View {
-    buffer: Rc<RefCell<Buffer>>,
+    pub buffer: Rc<RefCell<Buffer>>,
     cursor: usize,
     first_visible_line: usize,
     pub selection: Option<Range<usize>>,
@@ -88,6 +89,7 @@ impl View {
             page_length: 0,
         }
     }
+
 
     pub fn set_page_length(&mut self, page_length: usize) {
         self.page_length = page_length;

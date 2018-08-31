@@ -1,3 +1,4 @@
+use ropey;
 use ropey::Rope;
 use std::fs::File;
 use std::io;
@@ -83,21 +84,8 @@ impl Buffer {
         })
     }
 
-    // pub fn undo(&mut self) {
-    //     if let Some(r) = self.undo_stack.undo() {
-    //         println!("undo {}", r);
-    //         self.rope = r;
-    //     }
-    // }
-
-    // pub fn redo(&mut self) {
-    //     if let Some(r) = self.undo_stack.redo() {
-    //         self.rope = r;
-    //     }
-    // }
-
     /// Iterate over each char in the buffer
-    pub fn chars<'a>(&'a self) -> impl Iterator<Item = char> + 'a {
+    pub fn chars(&self) -> ropey::iter::Chars {//impl Iterator<Item = char> + 'a {
         self.rope.chars()
     }
     /// Total number of chars in the buffer
