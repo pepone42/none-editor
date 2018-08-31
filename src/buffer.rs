@@ -5,51 +5,10 @@ use std::io;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-// #[derive(Debug, Clone)]
-// struct UndoStack {
-//     stack: Vec<Rope>,
-//     index: usize,
-// }
-// impl UndoStack {
-//     pub fn new() -> Self {
-//         UndoStack {
-//             stack: Vec::new(),
-//             index: 0,
-//         }
-//     }
-//     pub fn push(&mut self,rope: Rope) {
-//         self.stack.truncate(self.index);
-//         self.stack.push(rope.clone());
-//         self.index +=1;
-//         println!("push {}",self.index);
-//     }
-//     pub fn undo(&mut self) -> Option<Rope> {
-//         if self.index == 0 {
-//             println!("undo stack empty");
-//             None
-//         } else {
-//             self.index -=1;
-//             println!("undo {}",self.index);
-//             Some(self.stack[self.index].clone())
-            
-//         }
-//     }
-//     pub fn redo(&mut self) ->Option<Rope> {
-//         if self.index == self.stack.len() {
-//             None
-//         } else {
-//             let r = self.stack[self.index].clone();
-//             self.index +=1;
-//             Some(r)
-//         }
-//     }
-// }
-
 /// A text Buffer
 #[derive(Debug, Clone)]
 pub struct Buffer {
     rope: Rope,
-    //undo_stack: UndoStack,
     filename: Option<PathBuf>,
     is_dirty: bool,
 }
@@ -59,7 +18,6 @@ impl Buffer {
     pub fn new() -> Self {
         Buffer {
             rope: Rope::new(),
-            //undo_stack: UndoStack::new(),
             filename: None,
             is_dirty: false,
         }
@@ -68,7 +26,6 @@ impl Buffer {
     pub fn from_str(text: &str) -> Self {
         Buffer {
             rope: Rope::from_str(text),
-            //undo_stack: UndoStack::new(),
             filename: None,
             is_dirty: false,
         }
@@ -78,14 +35,13 @@ impl Buffer {
         let r = Rope::from_reader(io::BufReader::new(File::open(filename)?))?;
         Ok(Buffer {
             rope: r,
-            //undo_stack: UndoStack::new(),
             filename: Some(filename.to_owned()),
             is_dirty: false,
         })
     }
 
     /// Iterate over each char in the buffer
-    pub fn chars(&self) -> ropey::iter::Chars {//impl Iterator<Item = char> + 'a {
+    pub fn chars(&self) -> ropey::iter::Chars {
         self.rope.chars()
     }
     /// Total number of chars in the buffer
@@ -98,23 +54,16 @@ impl Buffer {
     }
     /// insert ch at the given position
     pub fn insert_char(&mut self, char_idx: usize, ch: char) {
-        // let r = self.rope.clone();
-        // self.undo_stack.push(r);
         self.rope.insert_char(char_idx, ch);
         self.is_dirty = true;
     }
     /// Insert the string at the given position
-    //pub fn insert<'a, S: Into<&'a str>>(&mut self, char_idx: usize, text: S) {
     pub fn insert<S: AsRef<str>>(&mut self, char_idx: usize, text: S) {
-        // let r = self.rope.clone();
-        // self.undo_stack.push(r);
         self.rope.insert(char_idx, text.as_ref());
         self.is_dirty = true;
     }
     /// remove the given range from the buffer
     pub fn remove(&mut self, char_range: Range<usize>) {
-        // let r = self.rope.clone();
-        // self.undo_stack.push(r);
         self.rope.remove(char_range);
         self.is_dirty = true;
     }
@@ -144,11 +93,6 @@ impl Buffer {
     /// return the last char of the given line
     pub fn line_to_last_char(&self, line_idx: usize) -> usize {
         self.rope.line_to_char(line_idx) + self.line_len_no_eol(line_idx)
-        // if line_idx < self.len_lines() - 1 {
-        //     self.rope.line_to_char(line_idx) + self.line_len(line_idx) - 1
-        // } else {
-        //     self.rope.line_to_char(line_idx) + self.line_len(line_idx)
-        // }
     }
 
     /// return the len in chars of the given line
@@ -167,14 +111,6 @@ impl Buffer {
         let l = min(point.0, self.len_lines() - 1);
 
         let c = min(point.1, self.line_len_no_eol(l) );
-        // let c = if l < self.len_lines() - 1 {
-        //     // the last char of a line is just before the newline delim, so line_len -1
-        //     min(point.1, self.line_len(l) - 1)
-        // } else {
-        //     // there is no newline at the end of our line because it's the last one in the buffer
-        //     // then the last char is really the last char of this line
-        //     min(point.1, self.line_len(l) )
-        // };
         self.line_to_char(l) + c
     }
 }

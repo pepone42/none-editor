@@ -1,5 +1,3 @@
-// extern crate gl;
-// extern crate nanovg;
 extern crate ropey;
 extern crate sdl2;
 extern crate num;

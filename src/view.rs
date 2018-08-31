@@ -77,7 +77,6 @@ pub struct View {
 
 impl View {
     pub fn new(buffer: Rc<RefCell<Buffer>>) -> Self {
-        //let us =
         View {
             buffer,
             cursor: 0,
@@ -168,8 +167,6 @@ impl View {
     }
 
     pub fn undo(&mut self) {
-        // let mut b = self.buffer.borrow_mut();
-        // b.undo();
         if self.undo_stack.is_on_top() && !self.undo_stack.stack.is_empty() {
             // push the current state in case we redo 
             let st = self.get_state();
@@ -183,9 +180,6 @@ impl View {
     }
 
     pub fn redo(&mut self) {
-        // let mut b = self.buffer.borrow_mut();
-        // b.undo();
-        println!("redo {:?}", self.undo_stack.stack);
         if let Some(state) = self.undo_stack.redo() {
             self.buffer.replace(state.buffer);
             self.cursor = state.cursor;

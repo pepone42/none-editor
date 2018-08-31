@@ -3,12 +3,6 @@ use sdl2::keyboard::Keycode;
 use view::{View, ViewCmd, Direction};
 use clipboard2::*;
 
-// struct ViewCmd2 {
-//     name : &'static str,
-//     desc : &'static str,
-//     keybinding : KeyBinding,
-
-// }
 
 struct GenericViewCommand {
     name: &'static str,
@@ -61,39 +55,6 @@ impl ViewCmd for GenericViewCommand {
     }
 }
 
-// struct HomeCmd;
-
-// impl ViewCmd for HomeCmd {
-//     fn name(&self) -> &'static str {
-//         "Home"
-//     }
-//     fn desc(&self) -> &'static str {
-//         "go to the beginning of line"
-//     }
-//     fn keybinding(&self) -> KeyBinding {
-//         KeyBinding::new(Keycode::Home, Mod::NONE)
-//     }
-//     fn run(&mut self, view: &mut View) {
-//         view.home();
-//     }
-// }
-
-// struct EndCmd;
-
-// impl ViewCmd for EndCmd {
-//     fn name(&self) -> &'static str {
-//         "End"
-//     }
-//     fn desc(&self) -> &'static str {
-//         "go to the end of line"
-//     }
-//     fn keybinding(&self) -> KeyBinding {
-//         KeyBinding::new(Keycode::End, Mod::NONE)
-//     }
-//     fn run(&mut self, view: &mut View) {
-//         view.end();
-//     }
-// }
 lazy_static!{
     pub static ref CLIPBOARD : SystemClipboard = SystemClipboard::new().unwrap();
 }
