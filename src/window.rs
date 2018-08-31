@@ -268,52 +268,12 @@ pub fn start<P: AsRef<Path>>(mut width: usize, mut height: usize, file: Option<P
                 } => {
                     width = w as _;
                     height = h as _;
-                    //framebuffer = Surface::new(width as _, height as _, PixelFormatEnum::RGB24).unwrap();
                     win.resize(width, height);
-                    //page_height = height/font_height-1;
                 },
                 Event::KeyDown { keycode: Some(Keycode::LShift), .. }
                 | Event::KeyDown { keycode: Some(Keycode::RShift), .. } => win.start_selection(),
                 Event::KeyUp { keycode: Some(Keycode::LShift), .. }
                 | Event::KeyUp { keycode: Some(Keycode::RShift), .. } => win.end_selection(),
-                Event::KeyDown { keycode: Some(keycode), keymod, ..} => {
-                    match keycode {
-                        //Keycode::KpEnter |Keycode::Return => win.insert_char('\n'),
-                        Keycode::Up => win.move_cursor(Direction::Up),
-                        Keycode::Down => win.move_cursor(Direction::Down),
-                        Keycode::Right => win.move_cursor(Direction::Right),
-                        Keycode::Left => win.move_cursor(Direction::Left),
-                        // Keycode::Backspace => win.backspace(),
-                        // Keycode::Delete => win.delete(),
-                        //Keycode::Tab => win.insert_char('\t'),
-                        Keycode::PageUp => win.move_page(Direction::Up),
-                        Keycode::PageDown => win.move_page(Direction::Down),
-                        //Keycode::Home => win.home(),
-                        //Keycode::End => win.end(),
-                        // Keycode::C if keymod.contains(sdl2::keyboard::LCTRLMOD) || keymod.contains(sdl2::keyboard::RCTRLMOD) => {
-                        //     if let Some(s) = win.get_selection() {
-                        //         clipboard.set_string_contents(s).unwrap();
-                        //     }},
-                        // Keycode::X if keymod.contains(sdl2::keyboard::LCTRLMOD) || keymod.contains(sdl2::keyboard::RCTRLMOD) => {
-                        //     if let Some(s) = win.get_selection() {
-                        //         println!("{:?}",s );
-                        //         clipboard.set_string_contents(s).unwrap();
-                        //         win.delete();
-                        //     }},
-                        // Keycode::V if keymod.contains(sdl2::keyboard::LCTRLMOD) || keymod.contains(sdl2::keyboard::RCTRLMOD) => {
-                        //     let s = clipboard.get_string_contents().unwrap();
-                        //     win.insert(&s);
-                        //     //println!("{:?}",s );
-                        //     },
-                        // Keycode::Z if keymod.contains(sdl2::keyboard::LCTRLMOD) || keymod.contains(sdl2::keyboard::RCTRLMOD) => {
-                        //     win.undo();
-                        //     },
-                        // Keycode::Y if keymod.contains(sdl2::keyboard::LCTRLMOD) || keymod.contains(sdl2::keyboard::RCTRLMOD) => {
-                        //     win.redo();
-                        //     },
-                        _ => (),
-                    }
-                },
                 
                 Event::TextInput { text: t, .. } => {
                     t.chars().for_each(|c| win.insert_char(c));

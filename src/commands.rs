@@ -1,6 +1,6 @@
 use keybinding::{KeyBinding, Mod};
 use sdl2::keyboard::Keycode;
-use view::{View, ViewCmd};
+use view::{View, ViewCmd, Direction};
 use clipboard2::*;
 
 // struct ViewCmd2 {
@@ -209,6 +209,42 @@ pub mod view {
             "delete the char under the cursor or the selection",
             vec![KeyBinding::new(Keycode::Delete, Mod::NONE)],
             |v| v.delete_at_cursor(),
+        ));
+        v.push(GenericViewCommand::into_boxed(
+            "Up",
+            "Move cursor up",
+            vec![KeyBinding::new(Keycode::Up, Mod::NONE),KeyBinding::new(Keycode::Up, Mod::SHIFT)],
+            |v| v.move_cursor(Direction::Up),
+        ));
+        v.push(GenericViewCommand::into_boxed(
+            "Down",
+            "Move cursor down",
+            vec![KeyBinding::new(Keycode::Down, Mod::NONE),KeyBinding::new(Keycode::Down, Mod::SHIFT)],
+            |v| v.move_cursor(Direction::Down),
+        ));
+        v.push(GenericViewCommand::into_boxed(
+            "Left",
+            "Move cursor left",
+            vec![KeyBinding::new(Keycode::Left, Mod::NONE),KeyBinding::new(Keycode::Left, Mod::SHIFT)],
+            |v| v.move_cursor(Direction::Left),
+        ));
+        v.push(GenericViewCommand::into_boxed(
+            "Right",
+            "Move cursor right",
+            vec![KeyBinding::new(Keycode::Right, Mod::NONE),KeyBinding::new(Keycode::Right, Mod::SHIFT)],
+            |v| v.move_cursor(Direction::Right),
+        ));
+        v.push(GenericViewCommand::into_boxed(
+            "PageUp",
+            "Move page up",
+            vec![KeyBinding::new(Keycode::PageUp, Mod::NONE),KeyBinding::new(Keycode::PageUp, Mod::SHIFT)],
+            |v| v.move_page(Direction::Up),
+        ));
+        v.push(GenericViewCommand::into_boxed(
+            "PageDown",
+            "Move page down",
+            vec![KeyBinding::new(Keycode::PageDown, Mod::NONE),KeyBinding::new(Keycode::PageDown, Mod::SHIFT)],
+            |v| v.move_page(Direction::Down),
         ));
         v
     }
