@@ -67,49 +67,6 @@ impl EditorWindow {
         self.views.push(v);
     }
 
-    fn move_cursor(&mut self, dir: Direction) {
-        self.views[self.current_view].move_cursor(dir);
-    }
-    fn move_page(&mut self, dir: Direction) {
-        self.views[self.current_view].move_page(dir);
-    }
-    fn backspace(&mut self) {
-        self.views[self.current_view].backspace();
-    }
-    fn delete(&mut self) {
-        self.views[self.current_view].delete_at_cursor();
-    }
-    fn insert_char(&mut self, ch: char) {
-        self.views[self.current_view].insert_char(ch);
-    }
-    fn insert(&mut self, s: &str) {
-        self.views[self.current_view].insert(&s);
-    }
-    fn home(&mut self) {
-        self.views[self.current_view].home();
-    }
-    fn end(&mut self) {
-        self.views[self.current_view].end();
-    }
-
-    fn undo(&mut self) {
-        self.views[self.current_view].undo();
-    }
-
-    fn redo(&mut self) {
-        self.views[self.current_view].redo();
-    }
-
-    fn start_selection(&mut self) {
-        self.views[self.current_view].start_selection();
-    }
-    fn end_selection(&mut self) {
-        self.views[self.current_view].end_selection();
-    }
-    fn get_selection(&self) -> Option<String> {
-        return self.views[self.current_view].get_selection();
-    }
-
     fn resize(&mut self, width: usize, height: usize) {
         self.width = width;
         self.height = height;
@@ -185,43 +142,23 @@ pub fn start<P: AsRef<Path>>(mut width: usize, mut height: usize, file: Option<P
     let ttf_context = sdl2::ttf::init().unwrap();
     let mut canvas = display.into_canvas().accelerated().present_vsync().build().unwrap();
     let texture_creator = canvas.texture_creator();
-    //let mut framebuffer = Surface::new(width as _, height as _, PixelFormatEnum::RGB24).unwrap();
 
-    // let _gl_context = display.gl_create_context().unwrap();
-    // display.gl_set_context_to_current().unwrap();
-    // video_subsystem.gl_set_swap_interval(SwapInterval::VSync);
-
-    // gl::load_with(|symbol| video_subsystem.gl_get_proc_address(symbol) as *const _);
-    // let nanovg = nanovg::ContextBuilder::new()
-    //     .stencil_strokes()
-    //     .antialias()
-    //     .build()
-    //     .expect("Initialization of NanoVG failed!");
     let font_data = include_bytes!("monofont/UbuntuMono-Regular.ttf");
     let mut font = ttf_context
         .load_font_from_rwops(sdl2::rwops::RWops::from_bytes(font_data).unwrap(), FONT_SIZE)
         .unwrap();
     font.set_hinting(sdl2::ttf::Hinting::Normal);
     font.set_style(sdl2::ttf::STYLE_BOLD);
-    //let _font = nanovg::Font::from_memory(&nanovg, "Mono", b).expect("Failed to load font");
 
-    //let (mut width, mut height) = (width, height);
-    let font_height = font.recommended_line_spacing(); //font.height();
+    let font_height = font.recommended_line_spacing();
 
-    //let mut cache: HashMap<char, GlyphSurface> = HashMap::new();
-    //let mut texcache: HashMap<char, Texture> = HashMap::new();
-    
     let mut font_cache = GlyphCache::new(1024, font);
     font_cache.grow(&texture_creator);
     
-    // let font_height = calculate_font_height(&nanovg,_font);
-    //    let mut page_height = height/font_height-1;
-
     let mut win = EditorWindow::new(width, height, font_height as _, file);
 
     let mut view_cmd = commands::view::get_all();
     let mut cmd_keybinding = HashMap::<KeyBinding,usize>::new();
-    
     for i in 0 .. view_cmd.len() {
         for kb in view_cmd[i].keybinding() {
             cmd_keybinding.insert(kb, i);
@@ -231,8 +168,6 @@ pub fn start<P: AsRef<Path>>(mut width: usize, mut height: usize, file: Option<P
     let mut display_list = Vec::<DisplayCommand>::new();
 
     let mut event_pump = sdl_context.event_pump().unwrap();
-
-    //canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
 
     let mut redraw = true;
     'mainloop: loop {
@@ -271,12 +206,12 @@ pub fn start<P: AsRef<Path>>(mut width: usize, mut height: usize, file: Option<P
                     win.resize(width, height);
                 },
                 Event::KeyDown { keycode: Some(Keycode::LShift), .. }
-                | Event::KeyDown { keycode: Some(Keycode::RShift), .. } => win.start_selection(),
+                | Event::KeyDown { keycode: Some(Keycode::RShift), .. } => win.views[win.current_view].start_selection(),
                 Event::KeyUp { keycode: Some(Keycode::LShift), .. }
-                | Event::KeyUp { keycode: Some(Keycode::RShift), .. } => win.end_selection(),
+                | Event::KeyUp { keycode: Some(Keycode::RShift), .. } => win.views[win.current_view].end_selection(),
                 
                 Event::TextInput { text: t, .. } => {
-                    t.chars().for_each(|c| win.insert_char(c));
+                    t.chars().for_each(|c| win.views[win.current_view].insert_char(c));
                 }
                 _ => {}
             }
