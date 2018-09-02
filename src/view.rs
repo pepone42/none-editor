@@ -68,6 +68,7 @@ pub struct View {
     pub buffer: Rc<RefCell<Buffer>>,
     cursor: usize,
     first_visible_line: usize,
+    first_visible_char: usize,
     pub selection: Option<Range<usize>>,
     in_selection: bool,
     selection_start: usize,
@@ -76,11 +77,13 @@ pub struct View {
 }
 
 impl View {
+    /// Create a new View for the given buffer
     pub fn new(buffer: Rc<RefCell<Buffer>>) -> Self {
         View {
             buffer,
             cursor: 0,
             first_visible_line: 0,
+            first_visible_char: 0,
             selection: None,
             in_selection: false,
             selection_start: 0,
@@ -89,7 +92,7 @@ impl View {
         }
     }
 
-
+    /// set the page length of the view
     pub fn set_page_length(&mut self, page_length: usize) {
         self.page_length = page_length;
     }
@@ -106,6 +109,7 @@ impl View {
         self.undo_stack.push(&state);
     }
 
+    /// insert the given char at the cursor position
     pub fn insert_char(&mut self, ch: char) {
         self.push_state();
         {
@@ -120,6 +124,8 @@ impl View {
         self.clear_selection();
         self.focus_on_cursor();
     }
+
+    /// insert the given string at the cursor position
     pub fn insert(&mut self, text: &str) {
         self.push_state();
         {
@@ -134,6 +140,8 @@ impl View {
         self.clear_selection();
         self.focus_on_cursor();
     }
+
+    /// delete the charater directly to the left of cursor
     pub fn backspace(&mut self) {
         self.push_state();
         if let Some(r) = self.selection.clone() {
@@ -148,6 +156,8 @@ impl View {
         self.clear_selection();
         self.focus_on_cursor();
     }
+
+    /// delete the charater under the cursor
     pub fn delete_at_cursor(&mut self) {
         self.push_state();
         {
@@ -162,10 +172,13 @@ impl View {
         self.clear_selection();
         self.focus_on_cursor();
     }
+
+    /// return a newly allocated string of the buffer
     pub fn to_string(&self) -> String {
         self.buffer.borrow().to_string()
     }
 
+    /// undo the last action
     pub fn undo(&mut self) {
         if self.undo_stack.is_on_top() && !self.undo_stack.stack.is_empty() {
             // push the current state in case we redo 
@@ -179,6 +192,7 @@ impl View {
         self.focus_on_cursor();
     }
 
+    /// redo the last undo action
     pub fn redo(&mut self) {
         if let Some(state) = self.undo_stack.redo() {
             self.buffer.replace(state.buffer);
@@ -187,6 +201,7 @@ impl View {
         self.focus_on_cursor();
     }
 
+    /// return the currently selection
     pub fn get_selection(&self) -> Option<String> {
         match self.selection.clone() {
             None => None,
@@ -194,11 +209,14 @@ impl View {
         }
     }
 
+    /// return the cursor position in line
     pub fn line_idx(&self) -> usize {
         let b = self.buffer.borrow();
         let (l, _) = b.index_to_point(self.cursor);
         l
     }
+
+    /// return the cursor position in column
     pub fn col_idx(&self) -> usize {
         let b = self.buffer.borrow();
         let (_, c) = b.index_to_point(self.cursor);
@@ -247,6 +265,7 @@ impl View {
         }
     }
 
+    /// move the cursor in the given direction
     pub fn move_cursor(&mut self, dir: Direction) {
         match dir {
             Direction::Up => self.cursor_up(),
@@ -261,12 +280,16 @@ impl View {
         }
         self.focus_on_cursor();
     }
+
+    /// move one page in the given direction
     pub fn move_page(&mut self, dir: Direction) {
         for _ in 0..self.page_length {
             self.move_cursor(dir);
         }
         self.focus_on_cursor();
     }
+
+    /// put the cursor at the begining of the line
     pub fn home(&mut self) {
         let l = self.line_idx();
         self.cursor = self.buffer.borrow().line_to_char(l);
@@ -276,6 +299,8 @@ impl View {
             self.clear_selection();
         }
     }
+
+    /// put the cursor at the end of the line
     pub fn end(&mut self) {
         let l = self.line_idx();
         self.cursor = self.buffer.borrow().line_to_last_char(l);
@@ -286,18 +311,23 @@ impl View {
         }
     }
 
+    /// return the cursor position in number of chars from the begining of the buffer
     pub fn index(&self) -> usize {
         self.cursor
     }
+
+    /// put the cursor at the given position
     pub fn set_index(&mut self, idx: usize) {
         assert!(idx <= self.buffer.borrow().len_chars());
         self.cursor = idx;
     }
 
+    /// the first visible line in the view
     pub fn first_visible_line(&self) -> usize {
         self.first_visible_line
     }
 
+    /// move the view so that the cursor is visible
     pub fn focus_on_cursor(&mut self) {
         use std::cmp::min;
         let l = self.line_idx();
@@ -310,6 +340,7 @@ impl View {
         let b = self.buffer.borrow();
         self.first_visible_line = min(self.first_visible_line, b.len_lines());
     }
+
     pub fn start_selection(&mut self) {
         self.in_selection = true;
         match self.selection.clone() {
@@ -325,6 +356,8 @@ impl View {
     pub fn end_selection(&mut self) {
         self.in_selection = false;
     }
+
+    /// clear the current selection
     pub fn clear_selection(&mut self) {
         self.selection = None;
     }
