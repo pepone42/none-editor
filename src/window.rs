@@ -132,7 +132,7 @@ pub fn start<P: AsRef<Path>>(mut width: usize, mut height: usize, file: Option<P
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let display = video_subsystem
-        .window("Yoers", width as u32, height as u32)
+        .window("None", width as u32, height as u32)
         .position_centered()
         //.opengl()
         .resizable()
