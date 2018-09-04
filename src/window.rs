@@ -128,9 +128,14 @@ impl EditorWindow {
     }
 }
 
-pub fn start<P: AsRef<Path>>(mut width: usize, mut height: usize, file: Option<P>) {
+pub fn start<P: AsRef<Path>>(file: Option<P>) {
+
+    let mut width = super::SETTINGS.read().unwrap().get::<usize>("width").unwrap();
+    let mut height = super::SETTINGS.read().unwrap().get::<usize>("height").unwrap();
+
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
+    //video_subsystem.text_input().stop();
     let display = video_subsystem
         .window("None", width as u32, height as u32)
         .position_centered()
@@ -172,8 +177,10 @@ pub fn start<P: AsRef<Path>>(mut width: usize, mut height: usize, file: Option<P
     'mainloop: loop {
         for event in event_pump.poll_iter() {
             redraw = true;
+            
             match event { Event::KeyDown{keycode: Some(k),keymod,
                     ..} => {
+                println!("{:?} {:?}", k,keymod);
                 let mut km = keybinding::Mod::NONE;
                 if keymod.intersects(sdl2::keyboard::LCTRLMOD | sdl2::keyboard::RCTRLMOD) {
                     km |= keybinding::Mod::CTRL
@@ -184,6 +191,9 @@ pub fn start<P: AsRef<Path>>(mut width: usize, mut height: usize, file: Option<P
                 if keymod.intersects(sdl2::keyboard::LSHIFTMOD | sdl2::keyboard::RSHIFTMOD) {
                     km |= keybinding::Mod::SHIFT
                 }
+                // if keymod.intersects(sdl2::keyboard::NUMMOD) {
+                //     km |= keybinding::Mod::NUM
+                // }
                 if let Some(cmdid) = cmd_keybinding.get(&KeyBinding::new(k, km)) {
                     view_cmd[*cmdid].as_mut().run(&mut win.views[win.current_view]);
                 }}, 
@@ -255,5 +265,8 @@ pub fn start<P: AsRef<Path>>(mut width: usize, mut height: usize, file: Option<P
         
         redraw = false;
     }
+    
+    super::SETTINGS.write().unwrap().set("width",width as i64).unwrap();
+    super::SETTINGS.write().unwrap().set("height",height as i64).unwrap();
     
 }

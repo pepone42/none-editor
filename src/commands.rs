@@ -3,7 +3,6 @@ use sdl2::keyboard::Keycode;
 use view::{View, ViewCmd, Direction};
 use clipboard2::*;
 
-
 struct GenericViewCommand {
     name: &'static str,
     desc: &'static str,
@@ -25,18 +24,19 @@ impl GenericViewCommand {
             execute,
         }
     }
-    pub fn into_boxed(
+    pub fn into_boxed<K>(
         name: &'static str,
         desc: &'static str,
-        keybinding: Vec<KeyBinding>,
+        keybinding: &[K],
         execute: fn(&mut View),
-    ) -> Box<Self> {
-        Box::new(GenericViewCommand {
+    ) -> Box<Self> 
+    where K: Clone, KeyBinding: From<K> {
+        Box::new(GenericViewCommand::new(
             name,
             desc,
-            keybinding,
+            keybinding.into_iter().cloned().map(|k| From::from(k) ).collect(),
             execute,
-        })
+        ))
     }
 }
 
@@ -114,7 +114,8 @@ impl ViewCmd for CutCmd {
 
 
 pub mod view {
-    use commands::*;
+    use SETTINGS;
+use commands::*;
     use view::ViewCmd;
 
     pub fn get_all() -> Vec<Box<ViewCmd>> {
@@ -126,94 +127,98 @@ pub mod view {
         v.push(GenericViewCommand::into_boxed(
             "End",
             "Go to the end of the line",
-            vec![KeyBinding::new(Keycode::End, Mod::NONE),KeyBinding::new(Keycode::End, Mod::SHIFT)],
+            &["End","Shift-End"],
             |v| v.end(),
         ));
         v.push(GenericViewCommand::into_boxed(
             "Home",
             "Go to the beginning of the line",
-            vec![KeyBinding::new(Keycode::Home, Mod::NONE),KeyBinding::new(Keycode::Home, Mod::SHIFT)],
+            &["Home","Shift-Home"],
             |v| v.home(),
         ));
         v.push(GenericViewCommand::into_boxed(
             "Undo",
             "Undo the last action",
-            vec![KeyBinding::new(Keycode::Z, Mod::CTRL)],
+            &["Ctrl-Z"],
             |v| v.undo(),
         ));
         v.push(GenericViewCommand::into_boxed(
             "Redo",
             "Redo the last action",
-            vec![KeyBinding::new(Keycode::Y, Mod::CTRL)],
+            &["Ctrl-Y"],
             |v| v.redo(),
         ));
         v.push(GenericViewCommand::into_boxed(
             "Enter",
             "Insert the return char",
-            vec![KeyBinding::new(Keycode::KpEnter, Mod::NONE),KeyBinding::new(Keycode::Return, Mod::NONE)],
+            &["Keypad Enter","Return"],
             |v| v.insert_char('\n'),
         ));
         v.push(GenericViewCommand::into_boxed(
             "Tab",
             "Add a tabulation",
-            vec![KeyBinding::new(Keycode::Tab, Mod::NONE)],
-            |v| v.insert("    "),
+            &["Tab"],
+            |v| {
+                
+                if SETTINGS.read().unwrap().get("indentWithSpace").unwrap() {
+                    let n = SETTINGS.read().unwrap().get("tabSize").unwrap();
+                    for _ in 0..n {
+                        v.insert_char(' ');
+                    }
+                } else {
+                    v.insert_char('\t');
+                }
+            },
         ));
         v.push(GenericViewCommand::into_boxed(
             "Backspace",
             "delete the char at left  or the selection",
-            vec![KeyBinding::new(Keycode::Backspace, Mod::NONE)],
+            &["Backspace"],
             |v| v.backspace(),
         ));
         v.push(GenericViewCommand::into_boxed(
             "Delete",
             "delete the char under the cursor or the selection",
-            vec![KeyBinding::new(Keycode::Delete, Mod::NONE)],
+            &["Delete"],
             |v| v.delete_at_cursor(),
         ));
         v.push(GenericViewCommand::into_boxed(
             "Up",
             "Move cursor up",
-            vec![KeyBinding::new(Keycode::Up, Mod::NONE),KeyBinding::new(Keycode::Up, Mod::SHIFT)],
+            &["Up","Num-Up","Shift-Up","Shift-Num-Up"],
             |v| v.move_cursor(Direction::Up),
         ));
         v.push(GenericViewCommand::into_boxed(
             "Down",
             "Move cursor down",
-            vec![KeyBinding::new(Keycode::Down, Mod::NONE),KeyBinding::new(Keycode::Down, Mod::SHIFT)],
+            &["Down","Num-Down","Shift-Down","Shift-Num-Down"],
             |v| v.move_cursor(Direction::Down),
         ));
         v.push(GenericViewCommand::into_boxed(
             "Left",
             "Move cursor left",
-            vec![KeyBinding::new(Keycode::Left, Mod::NONE),KeyBinding::new(Keycode::Left, Mod::SHIFT)],
+            &["Left","Num-Left","Shift-Left","Shift-Num-Left"],
             |v| v.move_cursor(Direction::Left),
         ));
         v.push(GenericViewCommand::into_boxed(
             "Right",
             "Move cursor right",
-            vec![KeyBinding::new(Keycode::Right, Mod::NONE),KeyBinding::new(Keycode::Right, Mod::SHIFT)],
+            &["Right","Num-Right","Shift-Right","Shift-Num-Right"],
             |v| v.move_cursor(Direction::Right),
         ));
         v.push(GenericViewCommand::into_boxed(
             "PageUp",
             "Move page up",
-            vec![KeyBinding::new(Keycode::PageUp, Mod::NONE),KeyBinding::new(Keycode::PageUp, Mod::SHIFT)],
+            &["PageUp"],
             |v| v.move_page(Direction::Up),
         ));
         v.push(GenericViewCommand::into_boxed(
             "PageDown",
             "Move page down",
-            vec![KeyBinding::new(Keycode::PageDown, Mod::NONE),KeyBinding::new(Keycode::PageDown, Mod::SHIFT)],
+            &["PageDown"],
             |v| v.move_page(Direction::Down),
         ));
         v
     }
 }
-// lazy_static! {
-//     pub static ref VIEW_CMDS : Vec<Box<ViewCmd>> = {
-//         let mut v = Vec::<Box<ViewCmd>>::new();
-//         v.push(Box::new(HomeCmd{}));
-//         v
-//     };
-// }
+
