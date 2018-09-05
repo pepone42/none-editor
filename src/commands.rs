@@ -161,8 +161,11 @@ use commands::*;
             |v| {
                 
                 if SETTINGS.read().unwrap().get("indentWithSpace").unwrap() {
-                    let n = SETTINGS.read().unwrap().get("tabSize").unwrap();
-                    for _ in 0..n {
+                    let n = SETTINGS.read().unwrap().get::<usize>("tabSize").unwrap();
+                    let p = v.col_idx();
+                    let cible = ((p + n)/n)*n;
+
+                    for _ in 0.. cible - p {
                         v.insert_char(' ');
                     }
                 } else {

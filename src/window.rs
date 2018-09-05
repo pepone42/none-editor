@@ -1,4 +1,5 @@
 
+use SETTINGS;
 use std::cell::RefCell;
 use std::ops::Range;
 use std::path::Path;
@@ -77,10 +78,13 @@ impl EditorWindow {
         let mut y = 0;
         let mut x = 0;
         let adv = font.find_glyph_metrics(' ').unwrap().advance;
+        let tabsize: i32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
 
         let b = self.views[self.current_view].buffer.borrow();
-        let first_char = b.line_to_char(self.views[self.current_view].first_visible_line());
+        let first_visible_line = self.views[self.current_view].first_visible_line();
+        let first_char = b.line_to_char(first_visible_line);
         let mut idx = first_char;
+        let mut col = 0;
 
         for c in b.chars().skip(first_char) {
             match self.views[self.current_view].selection {
@@ -106,15 +110,20 @@ impl EditorWindow {
                         break;
                     }
                     x = 0;
+                    col = 0;
                 }
                 '\t' => {
-                    x += adv * 4;
+                    
+                    let nbspace = ((col + tabsize) / tabsize) * tabsize;
+                    col = nbspace;
+                    x = adv * nbspace;
                 }
                 '\r' => (),
                 _ => {
                     display_list.push(DisplayCommand::Move(x, y));
                     display_list.push(DisplayCommand::Char(c,Color::RGB(242, 232, 255)));
                     x += adv;
+                    col += 1;
                 }
             }
 
