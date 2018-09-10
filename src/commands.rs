@@ -1,6 +1,8 @@
+use window::EditorWindow;
 use keybinding::{KeyBinding, Mod};
 use sdl2::keyboard::Keycode;
 use view::{View, ViewCmd, Direction};
+use window::WindowCmd;
 use clipboard2::*;
 
 struct GenericViewCommand {
@@ -54,6 +56,60 @@ impl ViewCmd for GenericViewCommand {
         (self.execute)(view);
     }
 }
+
+struct GenericWindowCommand {
+    name: &'static str,
+    desc: &'static str,
+    keybinding: Vec<KeyBinding>,
+    execute: fn(&mut EditorWindow),
+}
+
+impl GenericWindowCommand {
+    pub fn new(
+        name: &'static str,
+        desc: &'static str,
+        keybinding: Vec<KeyBinding>,
+        execute: fn(&mut EditorWindow),
+    ) -> Self {
+        GenericWindowCommand {
+            name,
+            desc,
+            keybinding,
+            execute,
+        }
+    }
+    pub fn into_boxed<K>(
+        name: &'static str,
+        desc: &'static str,
+        keybinding: &[K],
+        execute: fn(&mut EditorWindow),
+    ) -> Box<Self> 
+    where K: Clone, KeyBinding: From<K> {
+        Box::new(GenericWindowCommand::new(
+            name,
+            desc,
+            keybinding.into_iter().cloned().map(|k| From::from(k) ).collect(),
+            execute,
+        ))
+    }
+}
+
+impl WindowCmd for GenericWindowCommand {
+    fn name(&self) -> &'static str {
+        self.name
+    }
+    fn desc(&self) -> &'static str {
+        self.desc
+    }
+    fn keybinding(&self) -> Vec<KeyBinding> {
+        self.keybinding.clone()
+    }
+    fn run(&mut self, window: &mut EditorWindow) {
+        (self.execute)(window);
+    }
+}
+
+
 
 lazy_static!{
     pub static ref CLIPBOARD : SystemClipboard = SystemClipboard::new().unwrap();
@@ -225,3 +281,20 @@ use commands::*;
     }
 }
 
+pub mod window {
+    use SETTINGS;
+    use commands::*;
+    use window::WindowCmd;
+
+    pub fn get_all() -> Vec<Box<WindowCmd>> {
+        let mut v = Vec::<Box<WindowCmd>>::new();
+        v.push(GenericWindowCommand::into_boxed(
+            "Open",
+            "Open an existing file",
+            &["Ctrl-O"],
+            |w| (println!("I should open something")),
+        ));
+
+        v
+    }
+}

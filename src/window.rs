@@ -34,6 +34,14 @@ pub struct EditorWindow {
     current_view: usize,
 }
 
+
+pub trait WindowCmd {
+    fn name(&self) -> &'static str;
+    fn desc(&self) ->  &'static str;
+    fn keybinding(&self) -> Vec<KeyBinding>;
+    fn run(&mut self,&mut EditorWindow);
+}
+
 const FONT_SIZE: u16 = 13;
 
 impl EditorWindow {
@@ -171,10 +179,17 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
     let mut win = EditorWindow::new(width, height, font_height as _, file);
 
     let mut view_cmd = commands::view::get_all();
-    let mut cmd_keybinding = HashMap::<KeyBinding,usize>::new();
+    let mut view_cmd_keybinding = HashMap::<KeyBinding,usize>::new();
     for i in 0 .. view_cmd.len() {
         for kb in view_cmd[i].keybinding() {
-            cmd_keybinding.insert(kb, i);
+            view_cmd_keybinding.insert(kb, i);
+        }
+    }
+    let mut win_cmd = commands::window::get_all();
+    let mut win_cmd_keybinding = HashMap::<KeyBinding,usize>::new();
+    for i in 0 .. win_cmd.len() {
+        for kb in win_cmd[i].keybinding() {
+            win_cmd_keybinding.insert(kb, i);
         }
     }
 
@@ -189,7 +204,7 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
             
             match event { Event::KeyDown{keycode: Some(k),keymod,
                     ..} => {
-                println!("{:?} {:?}", k,keymod);
+                //println!("{:?} {:?}", k,keymod);
                 let mut km = keybinding::Mod::NONE;
                 if keymod.intersects(sdl2::keyboard::LCTRLMOD | sdl2::keyboard::RCTRLMOD) {
                     km |= keybinding::Mod::CTRL
@@ -203,8 +218,11 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
                 // if keymod.intersects(sdl2::keyboard::NUMMOD) {
                 //     km |= keybinding::Mod::NUM
                 // }
-                if let Some(cmdid) = cmd_keybinding.get(&KeyBinding::new(k, km)) {
+                if let Some(cmdid) = view_cmd_keybinding.get(&KeyBinding::new(k, km)) {
                     view_cmd[*cmdid].as_mut().run(&mut win.views[win.current_view]);
+                }
+                if let Some(cmdid) = win_cmd_keybinding.get(&KeyBinding::new(k, km)) {
+                    win_cmd[*cmdid].as_mut().run(&mut win);
                 }}, 
                 _ => (),
             }
