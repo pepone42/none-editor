@@ -1,6 +1,5 @@
 use window::EditorWindow;
-use keybinding::{KeyBinding, Mod};
-use sdl2::keyboard::Keycode;
+use keybinding::KeyBinding;
 use view::{View, ViewCmd, Direction};
 use window::WindowCmd;
 use clipboard2::*;
@@ -109,65 +108,9 @@ impl WindowCmd for GenericWindowCommand {
     }
 }
 
-
-
 lazy_static!{
     pub static ref CLIPBOARD : SystemClipboard = SystemClipboard::new().unwrap();
 }
-
-struct CopyCmd;
-impl ViewCmd for CopyCmd {
-    fn name(&self) -> &'static str {
-        "Copy"
-    }
-    fn desc(&self) -> &'static str {
-        "Copy the current selection to clipboard"
-    }
-    fn keybinding(&self) -> Vec<KeyBinding> {
-        vec![KeyBinding::new(Keycode::C, Mod::CTRL)]
-    }
-    fn run(&mut self, view: &mut View) {
-        if let Some(s) = view.get_selection() {
-            CLIPBOARD.set_string_contents(s).unwrap();
-        }
-    }
-}
-struct PasteCmd;
-impl ViewCmd for PasteCmd {
-    fn name(&self) -> &'static str {
-        "Paste"
-    }
-    fn desc(&self) -> &'static str {
-        "Paste the content of clipboard"
-    }
-    fn keybinding(&self) -> Vec<KeyBinding> {
-        vec![KeyBinding::new(Keycode::V, Mod::CTRL)]
-    }
-    fn run(&mut self, view: &mut View) {
-        let s = CLIPBOARD.get_string_contents().unwrap();
-        view.insert(&s);
-    }
-}
-
-struct CutCmd;
-impl ViewCmd for CutCmd {
-    fn name(&self) -> &'static str {
-        "Cut"
-    }
-    fn desc(&self) -> &'static str {
-        "Cut the current selection to clipboard"
-    }
-    fn keybinding(&self) -> Vec<KeyBinding> {
-        vec![KeyBinding::new(Keycode::X, Mod::CTRL)]
-    }
-    fn run(&mut self, view: &mut View) {
-        if let Some(s) = view.get_selection() {
-            CLIPBOARD.set_string_contents(s).unwrap();
-            view.delete_at_cursor();
-        }
-    }
-}
-
 
 pub mod view {
     use SETTINGS;
@@ -176,10 +119,36 @@ use commands::*;
 
     pub fn get_all() -> Vec<Box<ViewCmd>> {
         let mut v = Vec::<Box<ViewCmd>>::new();
-        // v.push(Box::new(HomeCmd {}));
-        v.push(Box::new(CopyCmd {}));
-        v.push(Box::new(CutCmd {}));
-        v.push(Box::new(PasteCmd {}));
+        v.push(GenericViewCommand::into_boxed(
+            "Cut",
+            "Cut the current selection to clipboard",
+            &["Ctrl-X"],
+            |v| {
+                if let Some(s) = v.get_selection() {
+                    CLIPBOARD.set_string_contents(s).unwrap();
+                    v.delete_at_cursor();
+                }
+            }
+        ));
+        v.push(GenericViewCommand::into_boxed(
+            "Copy",
+            "Copy the current selection to clipboard",
+            &["Ctrl-C"],
+            |v| {
+                if let Some(s) = v.get_selection() {
+                    CLIPBOARD.set_string_contents(s).unwrap();
+                }
+            }
+        ));
+        v.push(GenericViewCommand::into_boxed(
+            "Paste",
+            "Paste the content of clipboard",
+            &["Ctrl-V"],
+            |v| {
+                let s = CLIPBOARD.get_string_contents().unwrap();
+                v.insert(&s);
+            }
+        ));
         v.push(GenericViewCommand::into_boxed(
             "End",
             "Go to the end of the line",
