@@ -11,4 +11,4 @@ Cargo.lock
 *.dll
 test_crlr.txt
 consolab.ttf
-
+.idea
