@@ -9,6 +9,7 @@ extern crate lazy_static;
 extern crate bitflags;
 extern crate config;
 extern crate directories;
+extern crate syntect;
 
 
 mod buffer;
@@ -17,6 +18,7 @@ mod window;
 mod fontcache;
 mod commands;
 mod keybinding;
+mod canvas;
 
 use std::io::Read;
 use std::path::PathBuf;

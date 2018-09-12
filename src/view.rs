@@ -7,6 +7,14 @@ use buffer::Buffer;
 use keybinding::KeyBinding;
 
 #[derive(Debug, Clone, Copy)]
+pub enum Indentation {
+    Tab,
+    Space(u32),
+    Mixed(u32),
+    Unknow,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum Direction {
     Up,
     Down,
@@ -95,6 +103,9 @@ impl View {
     /// set the page length of the view
     pub fn set_page_length(&mut self, page_length: usize) {
         self.page_length = page_length;
+    }
+    pub fn page_length(&self) -> usize {
+        self.page_length
     }
 
     fn get_state(&self) -> State {
@@ -325,6 +336,44 @@ impl View {
     /// the first visible line in the view
     pub fn first_visible_line(&self) -> usize {
         self.first_visible_line
+    }
+
+    pub fn detect_indentation(&self) -> Indentation {
+        let b = self.buffer.borrow();
+        let mut tab = 0;
+        let mut spaces = Vec::<u32>::new();
+        let tab_width = 0;
+        let mut contigus_space = 0;
+        
+        fn gcd(a: u32, b:u32) -> u32 {
+            if b == 0 {
+                b
+            } else {
+                gcd(b, a % b)
+            }
+        }
+
+        for l in b.lines().take(100) {
+            for c in l.chars() {
+                println!("{}", c);
+                match c {
+                    '\t' => {
+                        tab +=1;
+                        break;
+                    },
+                    ' ' => contigus_space +=1,
+                    _ => {
+                        if contigus_space >0 {
+
+                        }
+                        spaces.push(contigus_space);
+                        contigus_space = 0;
+                    }
+                    
+                }
+            }
+        }
+        Indentation::Space(4)
     }
 
     /// move the view so that the cursor is visible

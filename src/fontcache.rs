@@ -67,7 +67,7 @@ impl<'t,'ttf_context,'rwops> GlyphCache<'t,'ttf_context,'rwops> {
             // Grow, TODO
         }
     }
-    pub fn grow<'s, 'tc: 's + 't>(&'s mut self, texture_creator: &'tc TextureCreator<WindowContext>) {
+    pub fn grow<'s, 'tc: 't>(&'s mut self, texture_creator: &'tc TextureCreator<WindowContext>) {
         let mut tex = texture_creator.create_texture_streaming(PixelFormatEnum::ARGB8888, self.size, self.size).unwrap();
         tex.set_blend_mode(BlendMode::Blend);
         self.textures.push(tex);

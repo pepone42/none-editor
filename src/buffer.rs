@@ -44,6 +44,9 @@ impl Buffer {
     pub fn chars(&self) -> ropey::iter::Chars {
         self.rope.chars()
     }
+    pub fn lines(&self) -> ropey::iter::Lines {
+        self.rope.lines()
+    }
     /// Total number of chars in the buffer
     pub fn len_chars(&self) -> usize {
         self.rope.len_chars()
