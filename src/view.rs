@@ -78,11 +78,11 @@ impl UndoStack {
 
 #[derive(Debug)]
 pub struct View {
-    pub buffer: Rc<RefCell<Buffer>>,
+    buffer: Rc<RefCell<Buffer>>,
     cursor: usize,
     first_visible_line: usize,
     first_visible_char: usize,
-    pub selection: Option<Range<usize>>,
+    selection: Option<Range<usize>>,
     in_selection: bool,
     selection_start: usize,
     undo_stack: UndoStack,
