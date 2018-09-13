@@ -1,7 +1,3 @@
-
-use syntect::highlighting::Theme;
-use syntect::parsing::syntax_definition::SyntaxDefinition;
-use SETTINGS;
 use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
@@ -12,22 +8,15 @@ use sdl2;
 use sdl2::event::{Event, WindowEvent};
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
-use sdl2::ttf::Font;
 
-use canvas;
-//use canvas::DisplayCommand;
+use syntect::highlighting::{Theme,ThemeSet};
 
 use buffer::Buffer;
-use fontcache::GlyphCache;
 use commands;
 use view::View;
 use keybinding;
 use keybinding::KeyBinding;
-
-use syntect::easy::HighlightLines;
-use syntect::parsing::SyntaxSet;
-use syntect::highlighting::{ThemeSet, Style};
-
+use canvas;
 
 pub struct EditorWindow {
     views: Vec<View>,
@@ -37,7 +26,6 @@ pub struct EditorWindow {
     font_height: usize,
     current_view: usize,
 }
-
 
 pub trait WindowCmd {
     fn name(&self) -> &'static str;
@@ -76,6 +64,7 @@ impl EditorWindow {
         };
         self.buffers.push(b.clone());
         let mut v = View::new(b.clone());
+
         v.set_page_length(self.height / self.font_height - 1);
         self.views.push(v);
     }
@@ -86,112 +75,8 @@ impl EditorWindow {
         let page_length = self.height / self.font_height - 1;
         self.views[self.current_view].set_page_length(page_length);
     }
-    fn draw(&mut self, canvas: &mut canvas::Screen, syntax: &SyntaxDefinition, theme: &Theme) {
-        let mut y = 0;
-        let mut x = 0;
-        canvas.set_font("mono");
-        let adv = canvas.find_glyph_metrics("mono",' ').unwrap().advance;
-        let line_spacing = canvas.get_font_metrics("mono").line_spacing;
-        let tabsize: i32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
-
-        let b = self.views[self.current_view].buffer.borrow();
-        let first_visible_line = self.views[self.current_view].first_visible_line();
-        let last_visible_line = first_visible_line + self.views[self.current_view].page_length();
-        let first_char = b.line_to_char(first_visible_line);
-        let mut idx = first_char;
-        let mut col = 0;
-
-        let mut highlighter = HighlightLines::new(syntax, theme);
-
-        
-
-        let mut current_line = 0;
-        for l in b.lines().take(last_visible_line) {
-            let line = l.to_string(); // TODO: optimize
-            let ranges: Vec<(Style, &str)> = highlighter.highlight(&line);
-            //println!("{:?}", ranges);
-
-            if current_line>=first_visible_line {
-                for (style,text) in ranges {
-                    let fg = Color::RGB(style.foreground.r,style.foreground.g,style.foreground.b);
-                    let bg = Color::RGB(style.background.r,style.background.g,style.background.b);
-                    for c in text.chars() {
-                        match c {
-                            '\t' => {
-                                
-                                let nbspace = ((col + tabsize) / tabsize) * tabsize;
-                                col = nbspace;
-                                x = adv * nbspace;
-                            }
-                            '\r' => (),
-                            '\n' => (),
-                            _ => {
-                                // display_list.push(DisplayCommand::Move(x, y));
-                                // display_list.push(DisplayCommand::Char(c,fg));
-                                canvas.move_to(x, y);
-                                canvas.set_color(fg);
-                                canvas.draw_char(c);
-                                x += adv;
-                                col += 1;
-                            }
-                        }
-                    }
-                }
-                y += line_spacing;
-                x = 0;
-                col = 0;
-            }
-            current_line +=1;
-        }
-
-    //     for c in b.chars().skip(first_char) {
-    //         match self.views[self.current_view].selection {
-    //             None => (),
-    //             Some(Range { start, end }) if start <= idx && end > idx && c != '\n' => {
-    //                 display_list.push(DisplayCommand::Move(x, y));
-    //                 display_list.push(DisplayCommand::Rect(
-    //                     (adv + 1) as _,
-    //                     font.height() as _,
-    //                     Color::RGB(142, 132, 155),
-    //                 ));
-    //             }
-    //             _ => (),
-    //         }
-    //         if idx == self.views[self.current_view].index() {
-    //             display_list.push(DisplayCommand::Move(x, y));
-    //             display_list.push(DisplayCommand::Rect(2, font.height() as _, Color::RGB(242, 232, 255)));
-    //         }
-    //         match c {
-    //             '\n' => {
-    //                 y += font.recommended_line_spacing();
-    //                 if y > self.height as i32 {
-    //                     break;
-    //                 }
-    //                 x = 0;
-    //                 col = 0;
-    //             }
-    //             '\t' => {
-                    
-    //                 let nbspace = ((col + tabsize) / tabsize) * tabsize;
-    //                 col = nbspace;
-    //                 x = adv * nbspace;
-    //             }
-    //             '\r' => (),
-    //             _ => {
-    //                 display_list.push(DisplayCommand::Move(x, y));
-    //                 display_list.push(DisplayCommand::Char(c,Color::RGB(242, 232, 255)));
-    //                 x += adv;
-    //                 col += 1;
-    //             }
-    //         }
-
-    //         idx += 1;
-    //     }
-    //     // cursor at eof position
-    //     if idx == self.views[self.current_view].index() {
-    //         display_list.push(DisplayCommand::Move(x, y));
-    //         display_list.push(DisplayCommand::Rect(2, font.height() as _, Color::RGB(242, 232, 255)));
-    //     }
+    fn draw(&mut self, screen: &mut canvas::Screen, theme: &Theme) {
+        self.views[self.current_view].draw(screen,theme,0,0,self.width as _,self.height as _);
     }
 }
 
@@ -214,36 +99,20 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
     
     let mut canvas = display.into_canvas().accelerated().present_vsync().build().unwrap();
     
-    
-    
     let texture_creator = canvas.texture_creator();
-    let font_data = include_bytes!("monofont/UbuntuMono-Regular.ttf");
     
     let mut screen = canvas::Screen::new();
+    
+    let font_data = include_bytes!("monofont/UbuntuMono-Regular.ttf");
     screen.add_font_from_ubyte(&ttf_context, &texture_creator,"mono",font_data, FONT_SIZE);
-    
+
+
+    // create window. TODO: passing font_height as parameter feel off
     let font_height = screen.get_font_metrics("mono").line_spacing;
-    
-
-    // let mut font = ttf_context
-    //     .load_font_from_rwops(sdl2::rwops::RWops::from_bytes(font_data).unwrap(), FONT_SIZE)
-    //     .unwrap();
-    // font.set_hinting(sdl2::ttf::Hinting::Normal);
-    // font.set_style(sdl2::ttf::STYLE_BOLD);    let mut font = ttf_context
-    //     .load_font_from_rwops(sdl2::rwops::RWops::from_bytes(font_data).unwrap(), FONT_SIZE)
-    //     .unwrap();
-    // font.set_hinting(sdl2::ttf::Hinting::Normal);
-    // font.set_style(sdl2::ttf::STYLE_BOLD);
-
-    // let font_height = font.recommended_line_spacing();
-
-    // let mut font_cache = GlyphCache::new(1024, font);
-    // font_cache.grow(&texture_creator);
-
-
-    
     let mut win = EditorWindow::new(width, height, font_height as _, file);
 
+
+    // create view and windows cmd binding
     let mut view_cmd = commands::view::get_all();
     let mut view_cmd_keybinding = HashMap::<KeyBinding,usize>::new();
     for i in 0 .. view_cmd.len() {
@@ -259,14 +128,10 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
         }
     }
 
-
-    let ps = SyntaxSet::load_defaults_nonewlines();
+    // Theme
     let ts = ThemeSet::load_defaults();
-    let syntax = ps.find_syntax_by_extension("rs").unwrap();
-    
 
-    //let mut display_list = Vec::<DisplayCommand>::new();
-
+    // main loop
     let mut event_pump = sdl_context.event_pump().unwrap();
 
     let mut redraw = true;
@@ -331,7 +196,7 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
             canvas.set_draw_color(Color::RGB(0, 43, 53));
             canvas.clear();
             screen.clear();
-            win.draw(&mut screen ,syntax, &ts.themes["base16-ocean.dark"]);
+            win.draw(&mut screen , &ts.themes["base16-ocean.dark"]);
             screen.render(&mut canvas);
             canvas.present();    
         } else {

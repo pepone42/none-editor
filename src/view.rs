@@ -1,10 +1,15 @@
+use SYNTAXSET;
 use std::cell::RefCell;
 use std::ops::Range;
 use std::rc::Rc;
 
-use buffer;
+use syntect::highlighting::{Theme, Style};
+use syntect::easy::HighlightLines;
+
 use buffer::Buffer;
 use keybinding::KeyBinding;
+use SETTINGS;
+use canvas::{Screen,Color};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Indentation {
@@ -82,6 +87,7 @@ pub struct View {
     selection_start: usize,
     undo_stack: UndoStack,
     page_length: usize,
+    syntax: &'static str,
 }
 
 impl View {
@@ -97,6 +103,7 @@ impl View {
             selection_start: 0,
             undo_stack: UndoStack::new(),
             page_length: 0,
+            syntax: "txt",
         }
     }
 
@@ -388,6 +395,66 @@ impl View {
         }
         let b = self.buffer.borrow();
         self.first_visible_line = min(self.first_visible_line, b.len_lines());
+    }
+
+    pub fn draw(&self,screen: &mut Screen,theme: &Theme,x: i32,y: i32, w:u32, h:u32) {
+        let mut y = 0;
+        let mut x = 0;
+        screen.set_font("mono");
+        let adv = screen.find_glyph_metrics("mono",' ').unwrap().advance;
+        let line_spacing = screen.get_font_metrics("mono").line_spacing;
+        let tabsize: i32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
+
+        let b = self.buffer.borrow();
+        let first_visible_line = self.first_visible_line();
+        let last_visible_line = first_visible_line + self.page_length();
+        let first_char = b.line_to_char(first_visible_line);
+        let mut idx = first_char;
+        let mut col = 0;
+
+        
+        SYNTAXSET.with(|s| {
+            let synthax_definition = s.find_syntax_by_extension(self.syntax).unwrap();
+
+            let mut highlighter = HighlightLines::new(synthax_definition, theme);
+
+            let mut current_line = 0;
+            for l in b.lines().take(last_visible_line) {
+                let line = l.to_string(); // TODO: optimize
+                let ranges: Vec<(Style, &str)> = highlighter.highlight(&line);
+                //println!("{:?}", ranges);
+
+                if current_line>=first_visible_line {
+                    for (style,text) in ranges {
+                        let fg = Color::RGB(style.foreground.r,style.foreground.g,style.foreground.b);
+                        let bg = Color::RGB(style.background.r,style.background.g,style.background.b);
+                        for c in text.chars() {
+                            match c {
+                                '\t' => {
+                                    
+                                    let nbspace = ((col + tabsize) / tabsize) * tabsize;
+                                    col = nbspace;
+                                    x = adv * nbspace;
+                                }
+                                '\r' => (),
+                                '\n' => (),
+                                _ => {
+                                    screen.move_to(x, y);
+                                    screen.set_color(fg);
+                                    screen.draw_char(c);
+                                    x += adv;
+                                    col += 1;
+                                }
+                            }
+                        }
+                    }
+                    y += line_spacing;
+                    x = 0;
+                    col = 0;
+                }
+                current_line +=1;
+            }
+        });
     }
 
     pub fn start_selection(&mut self) {

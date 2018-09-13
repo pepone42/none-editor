@@ -1,4 +1,5 @@
-use sdl2::pixels::Color;
+//use sdl2::pixels::Color;
+use sdl2;
 use sdl2::rect::Rect;
 use sdl2::render;
 use sdl2::render::TextureCreator;
@@ -8,6 +9,8 @@ use sdl2::video::WindowContext;
 use std::collections::HashMap;
 
 use fontcache::GlyphCache;
+
+pub type Color = sdl2::pixels::Color;
 
 pub enum DisplayCommand {
     Move(i32, i32),

@@ -20,6 +20,7 @@ mod commands;
 mod keybinding;
 mod canvas;
 
+use syntect::parsing::SyntaxSet;
 use std::io::Read;
 use std::path::PathBuf;
 use config::Config;
@@ -47,6 +48,9 @@ lazy_static! {
 
         conf
     });
+}
+thread_local! {
+    pub static SYNTAXSET: SyntaxSet = SyntaxSet::load_defaults_nonewlines();
 }
 
 fn main() {
