@@ -40,6 +40,14 @@ impl Buffer {
         })
     }
 
+    /// return the filename
+    pub fn get_filename<'a>(&'a self) -> Option<&'a Path> {
+        match &self.filename {
+            Some(p) => Some(p.as_path()),
+            None => None
+        }
+    }
+
     /// Iterate over each char in the buffer
     pub fn chars(&self) -> ropey::iter::Chars {
         self.rope.chars()

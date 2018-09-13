@@ -65,6 +65,7 @@ impl EditorWindow {
         };
         self.buffers.push(b.clone());
         let mut v = View::new(b.clone());
+        v.detect_syntax();
 
         v.set_page_length(self.height / self.font_height - 1);
         self.views.push(v);

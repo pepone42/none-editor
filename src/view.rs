@@ -1,15 +1,15 @@
-use SYNTAXSET;
 use std::cell::RefCell;
 use std::ops::Range;
 use std::rc::Rc;
+use SYNTAXSET;
 
-use syntect::highlighting::{Theme, Style};
 use syntect::easy::HighlightLines;
+use syntect::highlighting::{Style, Theme};
 
 use buffer::Buffer;
+use canvas::{Color, Screen};
 use keybinding::KeyBinding;
 use SETTINGS;
-use canvas::{Screen,Color};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Indentation {
@@ -87,7 +87,7 @@ pub struct View {
     selection_start: usize,
     undo_stack: UndoStack,
     page_length: usize,
-    syntax: &'static str,
+    syntax: String,
 }
 
 impl View {
@@ -103,7 +103,7 @@ impl View {
             selection_start: 0,
             undo_stack: UndoStack::new(),
             page_length: 0,
-            syntax: "txt",
+            syntax: "Plain Text".to_owned(),
         }
     }
 
@@ -125,6 +125,17 @@ impl View {
     fn push_state(&mut self) {
         let state = self.get_state();
         self.undo_stack.push(&state);
+    }
+
+    /// detect language from extension
+    pub fn detect_syntax(&mut self) {
+        let b = self.buffer.borrow();
+        self.syntax = b
+            .get_filename()
+            .and_then(|f| f.extension())
+            .and_then(|e| e.to_str())
+            .and_then(|e| SYNTAXSET.with(|s| s.find_syntax_by_extension(e).map(|sd| { println!("Language {}", sd.name); sd.name.clone()})))
+            .unwrap_or("Plain Text".to_owned());
     }
 
     /// insert the given char at the cursor position
@@ -199,7 +210,7 @@ impl View {
     /// undo the last action
     pub fn undo(&mut self) {
         if self.undo_stack.is_on_top() && !self.undo_stack.stack.is_empty() {
-            // push the current state in case we redo 
+            // push the current state in case we redo
             let st = self.get_state();
             self.undo_stack.push_only(&st);
         }
@@ -242,7 +253,7 @@ impl View {
     }
 
     /// return the cursor position in line,col corrdinate
-    pub fn cursor_as_point(&self) -> (usize,usize) {
+    pub fn cursor_as_point(&self) -> (usize, usize) {
         let b = self.buffer.borrow();
         b.index_to_point(self.cursor)
     }
@@ -358,8 +369,8 @@ impl View {
         let mut spaces = Vec::<u32>::new();
         let tab_width = 0;
         let mut contigus_space = 0;
-        
-        fn gcd(a: u32, b:u32) -> u32 {
+
+        fn gcd(a: u32, b: u32) -> u32 {
             if b == 0 {
                 b
             } else {
@@ -372,18 +383,15 @@ impl View {
                 println!("{}", c);
                 match c {
                     '\t' => {
-                        tab +=1;
+                        tab += 1;
                         break;
-                    },
-                    ' ' => contigus_space +=1,
+                    }
+                    ' ' => contigus_space += 1,
                     _ => {
-                        if contigus_space >0 {
-
-                        }
+                        if contigus_space > 0 {}
                         spaces.push(contigus_space);
                         contigus_space = 0;
                     }
-                    
                 }
             }
         }
@@ -404,11 +412,11 @@ impl View {
         self.first_visible_line = min(self.first_visible_line, b.len_lines());
     }
 
-    pub fn draw(&self,screen: &mut Screen,theme: &Theme,x: i32,y: i32, w:u32, h:u32) {
+    pub fn draw(&self, screen: &mut Screen, theme: &Theme, x: i32, y: i32, w: u32, h: u32) {
         let mut y = 0;
         let mut x = 0;
         screen.set_font("mono");
-        let adv = screen.find_glyph_metrics("mono",' ').unwrap().advance;
+        let adv = screen.find_glyph_metrics("mono", ' ').unwrap().advance;
         let line_spacing = screen.get_font_metrics("mono").line_spacing;
         let tabsize: i32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
 
@@ -419,9 +427,8 @@ impl View {
         let mut idx = first_char;
         let mut col = 0;
 
-        
         SYNTAXSET.with(|s| {
-            let synthax_definition = s.find_syntax_by_extension(self.syntax).unwrap();
+            let synthax_definition = s.find_syntax_by_name(&self.syntax).unwrap();
 
             let mut highlighter = HighlightLines::new(synthax_definition, theme);
 
@@ -431,13 +438,12 @@ impl View {
                 let ranges: Vec<(Style, &str)> = highlighter.highlight(&line);
                 //println!("{:?}", ranges);
 
-                if current_line>=first_visible_line {
-                    for (style,text) in ranges {
-                        let fg = Color::RGB(style.foreground.r,style.foreground.g,style.foreground.b);
+                if current_line >= first_visible_line {
+                    for (style, text) in ranges {
+                        let fg = Color::RGB(style.foreground.r, style.foreground.g, style.foreground.b);
                         for c in text.chars() {
                             match c {
                                 '\t' => {
-                                    
                                     let nbspace = ((col + tabsize) / tabsize) * tabsize;
                                     col = nbspace;
                                     x = adv * nbspace;
@@ -458,7 +464,7 @@ impl View {
                     x = 0;
                     col = 0;
                 }
-                current_line +=1;
+                current_line += 1;
             }
         });
     }
@@ -499,9 +505,9 @@ impl View {
 
 pub trait ViewCmd {
     fn name(&self) -> &'static str;
-    fn desc(&self) ->  &'static str;
+    fn desc(&self) -> &'static str;
     fn keybinding(&self) -> Vec<KeyBinding>;
-    fn run(&mut self,&mut View);
+    fn run(&mut self, &mut View);
 }
 
 #[cfg(test)]
