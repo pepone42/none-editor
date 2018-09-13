@@ -10,6 +10,7 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 
 use syntect::highlighting::{Theme,ThemeSet};
+use syntect::highlighting;
 
 use buffer::Buffer;
 use commands;
@@ -76,6 +77,19 @@ impl EditorWindow {
         self.views[self.current_view].set_page_length(page_length);
     }
     fn draw(&mut self, screen: &mut canvas::Screen, theme: &Theme) {
+        screen.set_font("gui");
+
+        let footer_height = screen.get_font_metrics("gui").line_spacing;
+        let fg = theme.settings.foreground.unwrap_or(highlighting::Color::BLACK);
+        let bg = theme.settings.background.unwrap_or(highlighting::Color::WHITE);
+        screen.set_color(Color::RGB(fg.r, fg.g, fg.b));
+        screen.move_to(0, (self.height-(footer_height as usize)) as i32);
+        screen.draw_rect(self.width as _, footer_height as _);
+        screen.set_color(Color::RGB(bg.r, bg.g, bg.b));
+
+        let (line, col) = self.views[self.current_view].cursor_as_point();
+        screen.draw_str(&format!("({},{})",line,col));
+
         self.views[self.current_view].draw(screen,theme,0,0,self.width as _,self.height as _);
     }
 }
@@ -105,6 +119,9 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
     
     let font_data = include_bytes!("monofont/UbuntuMono-Regular.ttf");
     screen.add_font_from_ubyte(&ttf_context, &texture_creator,"mono",font_data, FONT_SIZE);
+
+    let font_data = include_bytes!("monofont/ubuntu.regular.ttf");
+    screen.add_font_from_ubyte(&ttf_context, &texture_creator,"gui",font_data, 10);
 
 
     // create window. TODO: passing font_height as parameter feel off
@@ -193,12 +210,14 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
         // redraw only when needed
         if redraw {
             // clear
-            canvas.set_draw_color(Color::RGB(0, 43, 53));
-            canvas.clear();
-            screen.clear();
-            win.draw(&mut screen , &ts.themes["base16-ocean.dark"]);
+            let theme = &ts.themes["base16-ocean.dark"];
+            let bg = theme.settings.background.unwrap_or(highlighting::Color::BLACK);
+            // canvas.set_draw_color(Color::RGB(bg.r, bg.g, bg.b));
+            // canvas.clear();
+            screen.clear(Color::RGB(bg.r, bg.g, bg.b));
+            win.draw(&mut screen , theme);
             screen.render(&mut canvas);
-            canvas.present();    
+            //canvas.present();    
         } else {
             thread::sleep(time::Duration::from_millis(10));
         }

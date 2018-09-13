@@ -18,6 +18,7 @@ pub enum DisplayCommand {
     Char(char),
     Rect(u32, u32),
     Font(usize),
+    Clear,
 }
 
 pub struct FontMetrics {
@@ -71,8 +72,10 @@ impl<'t, 'ttf_context, 'rwops> Screen<'t, 'ttf_context, 'rwops> {
     }
 
     /// Clear the screen
-    pub fn clear(&mut self) {
+    pub fn clear(&mut self, color: Color) {
         self.cmd_list.clear();
+        self.set_color(color);
+        self.cmd_list.push(DisplayCommand::Clear);
     }
 
     pub fn get_font_metrics(&self, font_name: &str) -> FontMetrics {
@@ -80,6 +83,12 @@ impl<'t, 'ttf_context, 'rwops> Screen<'t, 'ttf_context, 'rwops> {
         let cache = &self.fonts[fontid];
         FontMetrics {
             line_spacing: cache.font.recommended_line_spacing(),
+        }
+    }
+
+    pub fn draw_str(&mut self, string: &str) {
+        for c in string.chars() {
+            self.draw_char(c);
         }
     }
 
@@ -138,9 +147,14 @@ impl<'t, 'ttf_context, 'rwops> Screen<'t, 'ttf_context, 'rwops> {
                     sdl2_canvas
                         .copy(&tex, ch.rect, Rect::new(x, y, ch.rect.width(), ch.rect.height()))
                         .unwrap();
+                    x+= self.fonts[fontid].font.find_glyph_metrics(c).unwrap().advance;
                 }
                 DisplayCommand::Font(id) => {
                     fontid = id;
+                }
+                DisplayCommand::Clear => {
+                    sdl2_canvas.set_draw_color(color);
+                    sdl2_canvas.clear();
                 }
             }
         }

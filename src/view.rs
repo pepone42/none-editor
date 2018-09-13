@@ -240,6 +240,13 @@ impl View {
         let (_, c) = b.index_to_point(self.cursor);
         c
     }
+
+    /// return the cursor position in line,col corrdinate
+    pub fn cursor_as_point(&self) -> (usize,usize) {
+        let b = self.buffer.borrow();
+        b.index_to_point(self.cursor)
+    }
+
     fn cursor_up(&mut self) {
         let b = self.buffer.borrow();
         let (mut l, c) = b.index_to_point(self.cursor);
@@ -427,7 +434,6 @@ impl View {
                 if current_line>=first_visible_line {
                     for (style,text) in ranges {
                         let fg = Color::RGB(style.foreground.r,style.foreground.g,style.foreground.b);
-                        let bg = Color::RGB(style.background.r,style.background.g,style.background.b);
                         for c in text.chars() {
                             match c {
                                 '\t' => {
