@@ -46,7 +46,7 @@ impl<'t, 'ttf_context, 'rwops> Screen<'t, 'ttf_context, 'rwops> {
         }
     }
 
-    //pub fn add_font_from_ubyte<'tc: 't>(&'ttf_context mut self,texture_creator: &'tc TextureCreator<WindowContext>, font_name: &str,data: &'rwops [u8], size: u16) {
+    /// load a font from an array
     pub fn add_font_from_ubyte<'tc: 't>(
         &mut self,
         ttf_context: &'ttf_context ttf::Sdl2TtfContext,
@@ -78,6 +78,14 @@ impl<'t, 'ttf_context, 'rwops> Screen<'t, 'ttf_context, 'rwops> {
         self.cmd_list.push(DisplayCommand::Clear);
     }
 
+    /// draw the given string
+    pub fn draw_str(&mut self, string: &str) {
+        for c in string.chars() {
+            self.draw_char(c);
+        }
+    }
+
+    /// return metrics for the font
     pub fn get_font_metrics(&self, font_name: &str) -> FontMetrics {
         let fontid = self.font_name[font_name];
         let cache = &self.fonts[fontid];
@@ -86,12 +94,7 @@ impl<'t, 'ttf_context, 'rwops> Screen<'t, 'ttf_context, 'rwops> {
         }
     }
 
-    pub fn draw_str(&mut self, string: &str) {
-        for c in string.chars() {
-            self.draw_char(c);
-        }
-    }
-
+    /// return metrics for the given glyph and font
     pub fn find_glyph_metrics(&self, font_name: &str, c: char) -> Option<GlyphMetrics> {
         let fontid = self.font_name[font_name];
         let cache = &self.fonts[fontid];
@@ -111,14 +114,17 @@ impl<'t, 'ttf_context, 'rwops> Screen<'t, 'ttf_context, 'rwops> {
         self.cmd_list.push(DisplayCommand::Char(c));
     }
 
+    /// move the pointer to x,y
     pub fn move_to(&mut self, x: i32, y: i32) {
         self.cmd_list.push(DisplayCommand::Move(x, y));
     }
 
+    /// set the current color
     pub fn set_color(&mut self, color: Color) {
         self.cmd_list.push(DisplayCommand::Color(color));
     }
 
+    /// set the current font
     pub fn set_font(&mut self, font_name: &str) {
         let id = self.font_name[font_name];
         self.cmd_list.push(DisplayCommand::Font(id));
