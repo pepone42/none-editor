@@ -5,6 +5,7 @@ use SYNTAXSET;
 
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{Style, Theme};
+use syntect::highlighting;
 
 use buffer::Buffer;
 use canvas::{Color, Screen};
@@ -134,7 +135,7 @@ impl View {
             .get_filename()
             .and_then(|f| f.extension())
             .and_then(|e| e.to_str())
-            .and_then(|e| SYNTAXSET.with(|s| s.find_syntax_by_extension(e).map(|sd| { println!("Language {}", sd.name); sd.name.clone()})))
+            .and_then(|e| SYNTAXSET.with(|s| s.find_syntax_by_extension(e).map(|sd| sd.name.clone())))
             .unwrap_or("Plain Text".to_owned());
     }
 
@@ -467,6 +468,14 @@ impl View {
                 current_line += 1;
             }
         });
+
+        // Cursor
+        let fg = theme.settings.caret.unwrap_or(highlighting::Color::WHITE);
+        let (mut line,col) = self.cursor_as_point();
+        line -= first_visible_line;
+        screen.move_to(col as i32 * adv, line as i32 * line_spacing);
+        screen.set_color(Color::RGB(fg.r,fg.g,fg.b));
+        screen.draw_rect(2, line_spacing as _);
     }
 
     pub fn start_selection(&mut self) {
