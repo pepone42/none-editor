@@ -37,15 +37,15 @@ impl<'t,'ttf_context,'rwops> GlyphCache<'t,'ttf_context,'rwops> {
         }
     }
     // cache if necessary and return a glyph
-    pub fn get<'s>(&'s mut self, c: char, color: Color) -> CachedGlyph {
+    pub fn get(&mut self, c: char, color: Color) -> CachedGlyph {
         if !self.glyphs.contains_key(&(c, color)) {
             let s = self.font.render_char(c).blended(color).unwrap();
-            self.insert(c, color, s)
+            self.insert(c, color, &s)
         }
         self.glyphs[&(c, color)]
     }
     // insert a new glyph in the cache
-    pub fn insert<'s>(&'s mut self, c: char, color: Color, src: Surface) {
+    pub fn insert(&mut self, c: char, color: Color, src: &Surface) {
         // panic if there is no texture available
         assert!(!self.textures.is_empty());
         let last = self.textures.len() - 1;

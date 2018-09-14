@@ -26,7 +26,7 @@ impl KeyBinding {
 
 impl<'a> From<&'a str> for KeyBinding {
     fn from(keybinding: &'a str) -> Self {
-        let args: Vec<&str> = keybinding.split("-").collect();
+        let args: Vec<&str> = keybinding.split('-').collect();
         let mut keymod = Mod::NONE;
         let mut keycode:Option<Keycode> = None;
         for arg in args {

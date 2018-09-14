@@ -209,7 +209,7 @@ impl View {
             .and_then(|f| f.extension())
             .and_then(|e| e.to_str())
             .and_then(|e| SYNTAXSET.with(|s| s.find_syntax_by_extension(e).map(|sd| sd.name.clone())))
-            .unwrap_or("Plain Text".to_owned());
+            .unwrap_or_else(|| "Plain Text".to_owned());
     }
 
     /// insert the given char at the cursor position
@@ -233,7 +233,7 @@ impl View {
         self.push_state();
         {
             let mut b = self.buffer.borrow_mut();
-            if let Some(r) = self.selection.clone() {
+            if let Some(r) = self.selection {
                 self.cursor.set(r.start);
                 b.remove(r);
             }
@@ -247,7 +247,7 @@ impl View {
     /// delete the charater directly to the left of cursor
     pub fn backspace(&mut self) {
         self.push_state();
-        if let Some(r) = self.selection.clone() {
+        if let Some(r) = self.selection {
             let mut b = self.buffer.borrow_mut();
             self.cursor.set(r.start);
             b.remove(r);
@@ -265,7 +265,7 @@ impl View {
         self.push_state();
         {
             let mut b = self.buffer.borrow_mut();
-            if let Some(r) = self.selection.clone() {
+            if let Some(r) = self.selection {
                 self.cursor.set(r.start);
                 b.remove(r);
             } else if self.cursor.index < b.len_chars() {
@@ -306,7 +306,7 @@ impl View {
 
     /// return the currently selection
     pub fn get_selection(&self) -> Option<String> {
-        match self.selection.clone() {
+        match self.selection {
             None => None,
             Some(s) => Some(self.buffer.borrow().slice(s).to_string()),
         }

@@ -41,7 +41,7 @@ impl Buffer {
     }
 
     /// return the filename
-    pub fn get_filename<'a>(&'a self) -> Option<&'a Path> {
+    pub fn get_filename(&self) -> Option<&Path> {
         match &self.filename {
             Some(p) => Some(p.as_path()),
             None => None
@@ -134,10 +134,8 @@ mod tests {
     fn chars_iterators() {
         let buf = Buffer::from_str("Hello World");
         let res = ['H', 'e', 'l', 'l', 'o', ' ', 'W', 'o', 'r', 'l', 'd'];
-        let mut i = 0;
-        for c in buf.chars() {
+        for (i,c) in buf.chars().enumerate() {
             assert_eq!(c, res[i]);
-            i += 1;
         }
     }
 
