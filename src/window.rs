@@ -52,7 +52,6 @@ impl EditorWindow {
             width,
             height,
             font_height,
-            //page_height: height / font_height - 1,
             current_view: 0,
         };
         return w;
@@ -102,11 +101,9 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
 
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
-    //video_subsystem.text_input().stop();
     let display = video_subsystem
         .window("None", width as u32, height as u32)
         .position_centered()
-        //.opengl()
         .resizable()
         .build()
         .unwrap();
@@ -159,7 +156,6 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
             
             match event { Event::KeyDown{keycode: Some(k),keymod,
                     ..} => {
-                //println!("{:?} {:?}", k,keymod);
                 let mut km = keybinding::Mod::NONE;
                 if keymod.intersects(sdl2::keyboard::LCTRLMOD | sdl2::keyboard::RCTRLMOD) {
                     km |= keybinding::Mod::CTRL
@@ -213,12 +209,11 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
             // clear
             let theme = &ts.themes["Solarized (dark)"];
             let bg = theme.settings.background.unwrap_or(highlighting::Color::BLACK);
-            // canvas.set_draw_color(Color::RGB(bg.r, bg.g, bg.b));
-            // canvas.clear();
+
             screen.clear(Color::RGB(bg.r, bg.g, bg.b));
             win.draw(&mut screen , theme);
             screen.render(&mut canvas);
-            //canvas.present();    
+
         } else {
             thread::sleep(time::Duration::from_millis(10));
         }

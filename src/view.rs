@@ -416,7 +416,7 @@ impl View {
     pub fn draw(&self, screen: &mut Screen, theme: &Theme, x: i32, y: i32, w: u32, h: u32) {
         let mut y = 0;
         let mut x = 0;
-        screen.set_font("mono");
+        
         let adv = screen.find_glyph_metrics("mono", ' ').unwrap().advance;
         let line_spacing = screen.get_font_metrics("mono").line_spacing;
         let tabsize: i32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
@@ -425,21 +425,19 @@ impl View {
         let last_visible_line = first_visible_line + self.page_length();
         
 
-        
+        screen.set_font("mono");
         SYNTAXSET.with(|s| {
             let synthax_definition = s.find_syntax_by_name(&self.syntax).unwrap();
 
             let mut highlighter = HighlightLines::new(synthax_definition, theme);
 
-            let mut current_line = 0;
             let mut current_col = 0;
-            for l in self.buffer.borrow().lines().take(last_visible_line) {
+            for (line_index, l) in self.buffer.borrow().lines().take(last_visible_line).enumerate() {
                 let line = l.to_string(); // TODO: optimize
                 let ranges: Vec<(Style, &str)> = highlighter.highlight(&line);
-                //println!("{:?}", ranges);
 
-                if current_line >= first_visible_line {
-                    let mut idx = self.buffer.borrow().line_to_char(current_line);
+                if line_index >= first_visible_line {
+                    let mut idx = self.buffer.borrow().line_to_char(line_index);
 
                     for (style, text) in ranges {
                         let fg = Color::RGB(style.foreground.r, style.foreground.g, style.foreground.b);
@@ -477,7 +475,6 @@ impl View {
                     x = 0;
                     current_col = 0;
                 }
-                current_line += 1;
             }
         });
 
