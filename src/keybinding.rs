@@ -1,6 +1,6 @@
 use std::convert::From;
 
-use sdl2::keyboard::{Keycode};
+use sdl2::keyboard::Keycode;
 
 //#[derive(PartialEq,Eq,Debug,Hash)]
 bitflags! {
@@ -12,23 +12,22 @@ bitflags! {
         const NUM = 8;
     }
 }
-#[derive(PartialEq,Eq,Debug,Hash,Clone,Copy)]
+#[derive(PartialEq, Eq, Debug, Hash, Clone, Copy)]
 pub struct KeyBinding {
     keycode: Keycode,
     keymod: Mod,
 }
 impl KeyBinding {
     pub fn new(keycode: Keycode, keymod: Mod) -> Self {
-        KeyBinding {keycode,keymod}
+        KeyBinding { keycode, keymod }
     }
 }
-
 
 impl<'a> From<&'a str> for KeyBinding {
     fn from(keybinding: &'a str) -> Self {
         let args: Vec<&str> = keybinding.split('-').collect();
         let mut keymod = Mod::NONE;
-        let mut keycode:Option<Keycode> = None;
+        let mut keycode: Option<Keycode> = None;
         for arg in args {
             match arg.to_uppercase().as_str() {
                 // Mod key
@@ -40,21 +39,26 @@ impl<'a> From<&'a str> for KeyBinding {
                 code => keycode = Keycode::from_name(&code),
             }
         }
-        KeyBinding::new(keycode.unwrap(),keymod)
+        KeyBinding::new(keycode.unwrap(), keymod)
     }
 }
 
-
 #[cfg(test)]
 mod test {
-    use std::convert::From;
     use super::KeyBinding;
-    use sdl2::keyboard::{Keycode};
     use super::Mod;
+    use sdl2::keyboard::Keycode;
+    use std::convert::From;
     #[test]
     fn from_str() {
         assert_eq!(KeyBinding::from("Ctrl-C"), KeyBinding::new(Keycode::C, Mod::CTRL));
-        assert_eq!(KeyBinding::from("Ctrl-Shift-P"), KeyBinding::new(Keycode::P, Mod::CTRL | Mod::SHIFT ));
-        assert_eq!(KeyBinding::from("Ctrl-Return"), KeyBinding::new(Keycode::Return, Mod::CTRL));
+        assert_eq!(
+            KeyBinding::from("Ctrl-Shift-P"),
+            KeyBinding::new(Keycode::P, Mod::CTRL | Mod::SHIFT)
+        );
+        assert_eq!(
+            KeyBinding::from("Ctrl-Return"),
+            KeyBinding::new(Keycode::Return, Mod::CTRL)
+        );
     }
 }

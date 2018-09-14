@@ -153,7 +153,7 @@ impl<'t, 'ttf_context, 'rwops> Screen<'t, 'ttf_context, 'rwops> {
                     sdl2_canvas
                         .copy(&tex, ch.rect, Rect::new(x, y, ch.rect.width(), ch.rect.height()))
                         .unwrap();
-                    x+= self.fonts[fontid].font.find_glyph_metrics(c).unwrap().advance;
+                    x += self.fonts[fontid].font.find_glyph_metrics(c).unwrap().advance;
                 }
                 DisplayCommand::Font(id) => {
                     fontid = id;

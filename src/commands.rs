@@ -1,8 +1,8 @@
-use window::EditorWindow;
-use keybinding::KeyBinding;
-use view::{View, ViewCmd, Direction};
-use window::WindowCmd;
 use clipboard2::*;
+use keybinding::KeyBinding;
+use view::{Direction, View, ViewCmd};
+use window::EditorWindow;
+use window::WindowCmd;
 
 struct GenericViewCommand {
     name: &'static str,
@@ -12,12 +12,7 @@ struct GenericViewCommand {
 }
 
 impl GenericViewCommand {
-    pub fn new(
-        name: &'static str,
-        desc: &'static str,
-        keybinding: Vec<KeyBinding>,
-        execute: fn(&mut View),
-    ) -> Self {
+    pub fn new(name: &'static str, desc: &'static str, keybinding: Vec<KeyBinding>, execute: fn(&mut View)) -> Self {
         GenericViewCommand {
             name,
             desc,
@@ -25,13 +20,11 @@ impl GenericViewCommand {
             execute,
         }
     }
-    pub fn new_box<K>(
-        name: &'static str,
-        desc: &'static str,
-        keybinding: &[K],
-        execute: fn(&mut View),
-    ) -> Box<Self> 
-    where K: Clone, KeyBinding: From<K> {
+    pub fn new_box<K>(name: &'static str, desc: &'static str, keybinding: &[K], execute: fn(&mut View)) -> Box<Self>
+    where
+        K: Clone,
+        KeyBinding: From<K>,
+    {
         Box::new(GenericViewCommand::new(
             name,
             desc,
@@ -82,8 +75,11 @@ impl GenericWindowCommand {
         desc: &'static str,
         keybinding: &[K],
         execute: fn(&mut EditorWindow),
-    ) -> Box<Self> 
-    where K: Clone, KeyBinding: From<K> {
+    ) -> Box<Self>
+    where
+        K: Clone,
+        KeyBinding: From<K>,
+    {
         Box::new(GenericWindowCommand::new(
             name,
             desc,
@@ -108,14 +104,14 @@ impl WindowCmd for GenericWindowCommand {
     }
 }
 
-lazy_static!{
-    pub static ref CLIPBOARD : SystemClipboard = SystemClipboard::new().unwrap();
+lazy_static! {
+    pub static ref CLIPBOARD: SystemClipboard = SystemClipboard::new().unwrap();
 }
 
 pub mod view {
-    use SETTINGS;
-use commands::*;
+    use commands::*;
     use view::ViewCmd;
+    use SETTINGS;
 
     pub fn get_all() -> Vec<Box<ViewCmd>> {
         let mut v = Vec::<Box<ViewCmd>>::new();
@@ -128,7 +124,7 @@ use commands::*;
                     CLIPBOARD.set_string_contents(s).unwrap();
                     v.delete_at_cursor();
                 }
-            }
+            },
         ));
         v.push(GenericViewCommand::new_box(
             "Copy",
@@ -138,7 +134,7 @@ use commands::*;
                 if let Some(s) = v.get_selection() {
                     CLIPBOARD.set_string_contents(s).unwrap();
                 }
-            }
+            },
         ));
         v.push(GenericViewCommand::new_box(
             "Paste",
@@ -147,12 +143,12 @@ use commands::*;
             |v| {
                 let s = CLIPBOARD.get_string_contents().unwrap();
                 v.insert(&s);
-            }
+            },
         ));
         v.push(GenericViewCommand::new_box(
             "End",
             "Go to the end of the line",
-            &["End","Shift-End"],
+            &["End", "Shift-End"],
             |v| v.end(false),
         ));
         v.push(GenericViewCommand::new_box(
@@ -188,28 +184,22 @@ use commands::*;
         v.push(GenericViewCommand::new_box(
             "Enter",
             "Insert the return char",
-            &["Keypad Enter","Return"],
+            &["Keypad Enter", "Return"],
             |v| v.insert_char('\n'),
         ));
-        v.push(GenericViewCommand::new_box(
-            "Tab",
-            "Add a tabulation",
-            &["Tab"],
-            |v| {
-                
-                if SETTINGS.read().unwrap().get("indentWithSpace").unwrap() {
-                    let n = SETTINGS.read().unwrap().get::<usize>("tabSize").unwrap();
-                    let p = v.col_idx();
-                    let cible = ((p + n)/n)*n;
+        v.push(GenericViewCommand::new_box("Tab", "Add a tabulation", &["Tab"], |v| {
+            if SETTINGS.read().unwrap().get("indentWithSpace").unwrap() {
+                let n = SETTINGS.read().unwrap().get::<usize>("tabSize").unwrap();
+                let p = v.col_idx();
+                let cible = ((p + n) / n) * n;
 
-                    for _ in 0.. cible - p {
-                        v.insert_char(' ');
-                    }
-                } else {
-                    v.insert_char('\t');
+                for _ in 0..cible - p {
+                    v.insert_char(' ');
                 }
-            },
-        ));
+            } else {
+                v.insert_char('\t');
+            }
+        }));
         v.push(GenericViewCommand::new_box(
             "Backspace",
             "delete the char at left  or the selection",
@@ -225,50 +215,50 @@ use commands::*;
         v.push(GenericViewCommand::new_box(
             "Up",
             "Move cursor up",
-            &["Up","Num-Up"],
+            &["Up", "Num-Up"],
             |v| v.move_cursor(Direction::Up, false),
         ));
         v.push(GenericViewCommand::new_box(
             "Down",
             "Move cursor down",
-            &["Down","Num-Down"],
+            &["Down", "Num-Down"],
             |v| v.move_cursor(Direction::Down, false),
         ));
         v.push(GenericViewCommand::new_box(
             "Left",
             "Move cursor left",
-            &["Left","Num-Left"],
+            &["Left", "Num-Left"],
             |v| v.move_cursor(Direction::Left, false),
         ));
         v.push(GenericViewCommand::new_box(
             "Right",
             "Move cursor right",
-            &["Right","Num-Right"],
+            &["Right", "Num-Right"],
             |v| v.move_cursor(Direction::Right, false),
         ));
 
         v.push(GenericViewCommand::new_box(
             "UpSel",
             "Move cursor up expanding selection",
-            &["Shift-Up","Shift-Num-Up"],
+            &["Shift-Up", "Shift-Num-Up"],
             |v| v.move_cursor(Direction::Up, true),
         ));
         v.push(GenericViewCommand::new_box(
             "DownSel",
             "Move cursor down expanding selection",
-            &["Shift-Down","Shift-Num-Down"],
+            &["Shift-Down", "Shift-Num-Down"],
             |v| v.move_cursor(Direction::Down, true),
         ));
         v.push(GenericViewCommand::new_box(
             "LeftSel",
             "Move cursor left expanding selection",
-            &["Shift-Left","Shift-Num-Left"],
+            &["Shift-Left", "Shift-Num-Left"],
             |v| v.move_cursor(Direction::Left, true),
         ));
         v.push(GenericViewCommand::new_box(
             "RightSel",
             "Move cursor right expanding selection",
-            &["Shift-Right","Shift-Num-Right"],
+            &["Shift-Right", "Shift-Num-Right"],
             |v| v.move_cursor(Direction::Right, true),
         ));
 
@@ -302,9 +292,9 @@ use commands::*;
 }
 
 pub mod window {
-    use SETTINGS;
     use commands::*;
     use window::WindowCmd;
+    use SETTINGS;
 
     pub fn get_all() -> Vec<Box<WindowCmd>> {
         let mut v = Vec::<Box<WindowCmd>>::new();

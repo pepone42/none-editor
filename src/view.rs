@@ -1,14 +1,14 @@
-use std::ops::SubAssign;
-use std::ops::AddAssign;
-use std::ops::Add;
 use std::cell::RefCell;
+use std::ops::Add;
+use std::ops::AddAssign;
 use std::ops::Range;
+use std::ops::SubAssign;
 use std::rc::Rc;
 use SYNTAXSET;
 
 use syntect::easy::HighlightLines;
-use syntect::highlighting::{Style, Theme};
 use syntect::highlighting;
+use syntect::highlighting::{Style, Theme};
 
 use buffer::Buffer;
 use canvas::{Color, Screen};
@@ -88,16 +88,16 @@ struct Selection {
 
 impl Selection {
     fn new(start: usize, end: usize) -> Self {
-        Selection {start,end}
+        Selection { start, end }
     }
-    fn contains(&self,index: usize) -> bool {
+    fn contains(&self, index: usize) -> bool {
         if self.start <= self.end {
             self.start <= index && self.end > index
         } else {
             self.end <= index && self.start > index
         }
     }
-    fn expand(&mut self,index: usize) {
+    fn expand(&mut self, index: usize) {
         self.end = index;
     }
 }
@@ -105,9 +105,15 @@ impl Selection {
 impl Into<Range<usize>> for Selection {
     fn into(self) -> Range<usize> {
         if self.start <= self.end {
-            Range{start: self.start, end: self.end}
+            Range {
+                start: self.start,
+                end: self.end,
+            }
         } else {
-            Range{start: self.end, end: self.start}
+            Range {
+                start: self.end,
+                end: self.start,
+            }
         }
     }
 }
@@ -119,7 +125,7 @@ struct Cursor {
 }
 
 impl Cursor {
-    fn set(&mut self,index: usize) {
+    fn set(&mut self, index: usize) {
         self.previous = self.index;
         self.index = index;
     }
@@ -148,7 +154,6 @@ impl SubAssign<usize> for Cursor {
         self.index = self.index - other;
     }
 }
-
 
 #[derive(Debug)]
 pub struct View {
@@ -254,7 +259,7 @@ impl View {
         } else if self.cursor.index > 0 {
             self.cursor_left();
             let mut b = self.buffer.borrow_mut();
-            b.remove(self.cursor.index ..self.cursor.index + 1);
+            b.remove(self.cursor.index..self.cursor.index + 1);
         }
         self.clear_selection();
         self.focus_on_cursor();
@@ -394,7 +399,7 @@ impl View {
     /// move one page in the given direction
     pub fn move_page(&mut self, dir: Direction, expand_selection: bool) {
         for _ in 0..self.page_length {
-            self.move_cursor(dir,expand_selection);
+            self.move_cursor(dir, expand_selection);
         }
         self.focus_on_cursor();
     }
@@ -489,14 +494,13 @@ impl View {
     pub fn draw(&self, screen: &mut Screen, theme: &Theme, x: i32, y: i32, w: u32, h: u32) {
         let mut y = 0;
         let mut x = 0;
-        
+
         let adv = screen.find_glyph_metrics("mono", ' ').unwrap().advance;
         let line_spacing = screen.get_font_metrics("mono").line_spacing;
         let tabsize: i32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
 
         let first_visible_line = self.first_visible_line();
         let last_visible_line = first_visible_line + self.page_length();
-        
 
         screen.set_font("mono");
         SYNTAXSET.with(|s| {
@@ -518,11 +522,11 @@ impl View {
                             match self.selection {
                                 Some(sel) if sel.contains(idx) => {
                                     let color = theme.settings.selection.unwrap_or(highlighting::Color::WHITE);
-                                    screen.set_color(Color::RGB(color.r,color.g,color.b));
+                                    screen.set_color(Color::RGB(color.r, color.g, color.b));
                                     screen.move_to(x, y);
                                     screen.draw_rect(adv as _, line_spacing as _);
                                 }
-                                _ => ()
+                                _ => (),
                             }
                             match c {
                                 '\t' => {
@@ -542,7 +546,6 @@ impl View {
                             }
                             idx += 1;
                         }
-                        
                     }
                     y += line_spacing;
                     x = 0;
@@ -553,10 +556,10 @@ impl View {
 
         // Cursor
         let fg = theme.settings.caret.unwrap_or(highlighting::Color::WHITE);
-        let (mut line,col) = self.cursor_as_point();
+        let (mut line, col) = self.cursor_as_point();
         line -= first_visible_line;
         screen.move_to(col as i32 * adv, line as i32 * line_spacing);
-        screen.set_color(Color::RGB(fg.r,fg.g,fg.b));
+        screen.set_color(Color::RGB(fg.r, fg.g, fg.b));
         screen.draw_rect(2, line_spacing as _);
     }
 

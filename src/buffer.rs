@@ -44,7 +44,7 @@ impl Buffer {
     pub fn get_filename(&self) -> Option<&Path> {
         match &self.filename {
             Some(p) => Some(p.as_path()),
-            None => None
+            None => None,
         }
     }
 
@@ -83,7 +83,7 @@ impl Buffer {
     pub fn to_string(&self) -> String {
         self.rope.to_string()
     }
-    pub fn slice<R: Into<Range<usize>>>(&self,r: R) -> String {
+    pub fn slice<R: Into<Range<usize>>>(&self, r: R) -> String {
         self.rope.slice(r.into()).to_string()
     }
 
@@ -98,7 +98,7 @@ impl Buffer {
 
     pub fn line_len_no_eol(&self, line_idx: usize) -> usize {
         let l = self.rope.line(line_idx);
-        l.chars().filter(|c| *c!='\n' && *c!='\r').count()
+        l.chars().filter(|c| *c != '\n' && *c != '\r').count()
     }
 
     /// return the last char of the given line
@@ -121,7 +121,7 @@ impl Buffer {
         use std::cmp::min;
         let l = min(point.0, self.len_lines() - 1);
 
-        let c = min(point.1, self.line_len_no_eol(l) );
+        let c = min(point.1, self.line_len_no_eol(l));
         self.line_to_char(l) + c
     }
 }
@@ -134,7 +134,7 @@ mod tests {
     fn chars_iterators() {
         let buf = Buffer::from_str("Hello World");
         let res = ['H', 'e', 'l', 'l', 'o', ' ', 'W', 'o', 'r', 'l', 'd'];
-        for (i,c) in buf.chars().enumerate() {
+        for (i, c) in buf.chars().enumerate() {
             assert_eq!(c, res[i]);
         }
     }
