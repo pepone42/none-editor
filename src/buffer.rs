@@ -74,8 +74,8 @@ impl Buffer {
         self.is_dirty = true;
     }
     /// remove the given range from the buffer
-    pub fn remove(&mut self, char_range: Range<usize>) {
-        self.rope.remove(char_range);
+    pub fn remove<R: Into<Range<usize>>>(&mut self, char_range: R) {
+        self.rope.remove(char_range.into());
         self.is_dirty = true;
     }
 
@@ -83,8 +83,8 @@ impl Buffer {
     pub fn to_string(&self) -> String {
         self.rope.to_string()
     }
-    pub fn slice(&self,r: Range<usize>) -> String {
-        self.rope.slice(r).to_string()
+    pub fn slice<R: Into<Range<usize>>>(&self,r: R) -> String {
+        self.rope.slice(r.into()).to_string()
     }
 
     /// return the line of the given char

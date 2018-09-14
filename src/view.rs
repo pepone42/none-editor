@@ -1,3 +1,6 @@
+use std::ops::SubAssign;
+use std::ops::AddAssign;
+use std::ops::Add;
 use std::cell::RefCell;
 use std::ops::Range;
 use std::rc::Rc;
@@ -31,7 +34,7 @@ pub enum Direction {
 #[derive(Clone, Debug)]
 struct State {
     buffer: Buffer,
-    cursor: usize,
+    cursor: Cursor,
 }
 #[derive(Debug)]
 struct UndoStack {
@@ -77,15 +80,85 @@ impl UndoStack {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct Selection {
+    start: usize,
+    end: usize,
+}
+
+impl Selection {
+    fn new(start: usize, end: usize) -> Self {
+        Selection {start,end}
+    }
+    fn contains(&self,index: usize) -> bool {
+        if self.start <= self.end {
+            self.start <= index && self.end > index
+        } else {
+            self.end <= index && self.start > index
+        }
+    }
+    fn expand(&mut self,index: usize) {
+        self.end = index;
+    }
+}
+
+impl Into<Range<usize>> for Selection {
+    fn into(self) -> Range<usize> {
+        if self.start <= self.end {
+            Range{start: self.start, end: self.end}
+        } else {
+            Range{start: self.end, end: self.start}
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct Cursor {
+    index: usize,
+    previous: usize,
+}
+
+impl Cursor {
+    fn set(&mut self,index: usize) {
+        self.previous = self.index;
+        self.index = index;
+    }
+}
+
+impl Add<usize> for Cursor {
+    type Output = Cursor;
+    fn add(self, other: usize) -> Cursor {
+        Cursor {
+            index: self.index + other,
+            previous: self.index,
+        }
+    }
+}
+
+impl AddAssign<usize> for Cursor {
+    fn add_assign(&mut self, other: usize) {
+        self.previous = self.index;
+        self.index = self.index + other;
+    }
+}
+
+impl SubAssign<usize> for Cursor {
+    fn sub_assign(&mut self, other: usize) {
+        self.previous = self.index;
+        self.index = self.index - other;
+    }
+}
+
+
 #[derive(Debug)]
 pub struct View {
     buffer: Rc<RefCell<Buffer>>,
-    cursor: usize,
+    cursor: Cursor,
     first_visible_line: usize,
     first_visible_char: usize,
-    selection: Option<Range<usize>>,
-    in_selection: bool,
-    selection_start: usize,
+    selection: Option<Selection>,
+    // in_selection: bool,
+    // selection_start: usize,
     undo_stack: UndoStack,
     page_length: usize,
     syntax: String,
@@ -96,12 +169,12 @@ impl View {
     pub fn new(buffer: Rc<RefCell<Buffer>>) -> Self {
         View {
             buffer,
-            cursor: 0,
+            cursor: Cursor::default(),
             first_visible_line: 0,
             first_visible_char: 0,
             selection: None,
-            in_selection: false,
-            selection_start: 0,
+            // in_selection: false,
+            // selection_start: 0,
             undo_stack: UndoStack::new(),
             page_length: 0,
             syntax: "Plain Text".to_owned(),
@@ -144,11 +217,11 @@ impl View {
         self.push_state();
         {
             let mut b = self.buffer.borrow_mut();
-            if let Some(r) = self.selection.clone() {
-                self.cursor = r.start;
+            if let Some(r) = self.selection {
+                self.cursor.set(r.start);
                 b.remove(r);
             }
-            b.insert_char(self.cursor, ch);
+            b.insert_char(self.cursor.index, ch);
         } // unborrow buffer
         self.cursor_right();
         self.clear_selection();
@@ -161,10 +234,10 @@ impl View {
         {
             let mut b = self.buffer.borrow_mut();
             if let Some(r) = self.selection.clone() {
-                self.cursor = r.start;
+                self.cursor.set(r.start);
                 b.remove(r);
             }
-            b.insert(self.cursor, &text);
+            b.insert(self.cursor.index, &text);
         } // unborrow buffer
         self.cursor += text.chars().count();
         self.clear_selection();
@@ -176,12 +249,12 @@ impl View {
         self.push_state();
         if let Some(r) = self.selection.clone() {
             let mut b = self.buffer.borrow_mut();
-            self.cursor = r.start;
+            self.cursor.set(r.start);
             b.remove(r);
-        } else if self.cursor > 0 {
+        } else if self.cursor.index > 0 {
             self.cursor_left();
             let mut b = self.buffer.borrow_mut();
-            b.remove(self.cursor..self.cursor + 1);
+            b.remove(self.cursor.index ..self.cursor.index + 1);
         }
         self.clear_selection();
         self.focus_on_cursor();
@@ -193,10 +266,10 @@ impl View {
         {
             let mut b = self.buffer.borrow_mut();
             if let Some(r) = self.selection.clone() {
-                self.cursor = r.start;
+                self.cursor.set(r.start);
                 b.remove(r);
-            } else if self.cursor < b.len_chars() {
-                b.remove(self.cursor..self.cursor + 1);
+            } else if self.cursor.index < b.len_chars() {
+                b.remove(self.cursor.index..self.cursor.index + 1);
             }
         }
         self.clear_selection();
@@ -242,47 +315,47 @@ impl View {
     /// return the cursor position in line
     pub fn line_idx(&self) -> usize {
         let b = self.buffer.borrow();
-        let (l, _) = b.index_to_point(self.cursor);
+        let (l, _) = b.index_to_point(self.cursor.index);
         l
     }
 
     /// return the cursor position in column
     pub fn col_idx(&self) -> usize {
         let b = self.buffer.borrow();
-        let (_, c) = b.index_to_point(self.cursor);
+        let (_, c) = b.index_to_point(self.cursor.index);
         c
     }
 
     /// return the cursor position in line,col corrdinate
     pub fn cursor_as_point(&self) -> (usize, usize) {
         let b = self.buffer.borrow();
-        b.index_to_point(self.cursor)
+        b.index_to_point(self.cursor.index)
     }
 
     fn cursor_up(&mut self) {
         let b = self.buffer.borrow();
-        let (mut l, c) = b.index_to_point(self.cursor);
+        let (mut l, c) = b.index_to_point(self.cursor.index);
         if l > 0 {
             l -= 1
         };
-        self.cursor = b.point_to_index((l, c));
+        self.cursor.set(b.point_to_index((l, c)));
     }
     fn cursor_down(&mut self) {
         let b = self.buffer.borrow();
-        let (mut l, c) = b.index_to_point(self.cursor);
+        let (mut l, c) = b.index_to_point(self.cursor.index);
         if l < b.len_lines() - 1 {
             l += 1
         };
-        self.cursor = b.point_to_index((l, c));
+        self.cursor.set(b.point_to_index((l, c)));
     }
     fn cursor_left(&mut self) {
         let b = self.buffer.borrow();
-        if self.cursor > 0 {
-            let line_idx = b.char_to_line(self.cursor);
+        if self.cursor.index > 0 {
+            let line_idx = b.char_to_line(self.cursor.index);
             let line_idx_char = b.line_to_char(line_idx);
             // handle crlf and lf
-            if self.cursor == line_idx_char {
-                self.cursor = b.line_to_last_char(line_idx - 1);
+            if self.cursor.index == line_idx_char {
+                self.cursor.set(b.line_to_last_char(line_idx - 1));
             } else {
                 self.cursor -= 1;
             }
@@ -290,12 +363,12 @@ impl View {
     }
     fn cursor_right(&mut self) {
         let b = self.buffer.borrow();
-        if self.cursor < b.len_chars() {
-            let line_idx = b.char_to_line(self.cursor);
+        if self.cursor.index < b.len_chars() {
+            let line_idx = b.char_to_line(self.cursor.index);
             let line_idx_char = b.line_to_last_char(line_idx);
             // handle crlf and lf
-            if self.cursor == line_idx_char {
-                self.cursor = b.line_to_char(line_idx + 1);
+            if self.cursor.index == line_idx_char {
+                self.cursor.set(b.line_to_char(line_idx + 1));
             } else {
                 self.cursor += 1;
             }
@@ -303,14 +376,14 @@ impl View {
     }
 
     /// move the cursor in the given direction
-    pub fn move_cursor(&mut self, dir: Direction) {
+    pub fn move_cursor(&mut self, dir: Direction, expand_selection: bool) {
         match dir {
             Direction::Up => self.cursor_up(),
             Direction::Down => self.cursor_down(),
             Direction::Right => self.cursor_right(),
             Direction::Left => self.cursor_left(),
         }
-        if self.in_selection {
+        if expand_selection {
             self.expand_selection();
         } else {
             self.clear_selection();
@@ -319,18 +392,18 @@ impl View {
     }
 
     /// move one page in the given direction
-    pub fn move_page(&mut self, dir: Direction) {
+    pub fn move_page(&mut self, dir: Direction, expand_selection: bool) {
         for _ in 0..self.page_length {
-            self.move_cursor(dir);
+            self.move_cursor(dir,expand_selection);
         }
         self.focus_on_cursor();
     }
 
     /// put the cursor at the begining of the line
-    pub fn home(&mut self) {
+    pub fn home(&mut self, expand_selection: bool) {
         let l = self.line_idx();
-        self.cursor = self.buffer.borrow().line_to_char(l);
-        if self.in_selection {
+        self.cursor.set(self.buffer.borrow().line_to_char(l));
+        if expand_selection {
             self.expand_selection();
         } else {
             self.clear_selection();
@@ -338,10 +411,10 @@ impl View {
     }
 
     /// put the cursor at the end of the line
-    pub fn end(&mut self) {
+    pub fn end(&mut self, expand_selection: bool) {
         let l = self.line_idx();
-        self.cursor = self.buffer.borrow().line_to_last_char(l);
-        if self.in_selection {
+        self.cursor.set(self.buffer.borrow().line_to_last_char(l));
+        if expand_selection {
             self.expand_selection();
         } else {
             self.clear_selection();
@@ -350,13 +423,13 @@ impl View {
 
     /// return the cursor position in number of chars from the begining of the buffer
     pub fn index(&self) -> usize {
-        self.cursor
+        self.cursor.index
     }
 
     /// put the cursor at the given position
     pub fn set_index(&mut self, idx: usize) {
         assert!(idx <= self.buffer.borrow().len_chars());
-        self.cursor = idx;
+        self.cursor.set(idx);
     }
 
     /// the first visible line in the view
@@ -443,7 +516,7 @@ impl View {
                         let fg = Color::RGB(style.foreground.r, style.foreground.g, style.foreground.b);
                         for c in text.chars() {
                             match self.selection {
-                                Some(Range { start, end }) if start <= idx && end > idx => {
+                                Some(sel) if sel.contains(idx) => {
                                     let color = theme.settings.selection.unwrap_or(highlighting::Color::WHITE);
                                     screen.set_color(Color::RGB(color.r,color.g,color.b));
                                     screen.move_to(x, y);
@@ -487,36 +560,16 @@ impl View {
         screen.draw_rect(2, line_spacing as _);
     }
 
-    pub fn start_selection(&mut self) {
-        self.in_selection = true;
-        match self.selection.clone() {
-            // if the cursor is at the start or the end of the selection
-            // -> do nothing, we want to continue to expand the current selection
-            Some(Range { start, end }) if start == self.cursor || end == self.cursor => (),
-            _ => {
-                self.selection = Some(self.cursor..self.cursor);
-                self.selection_start = self.cursor;
-            }
-        }
-    }
-    pub fn end_selection(&mut self) {
-        self.in_selection = false;
-    }
-
     /// clear the current selection
     pub fn clear_selection(&mut self) {
         self.selection = None;
     }
     fn expand_selection(&mut self) {
-        self.selection = match self.selection {
-            None => Some(self.selection_start..self.cursor),
-            Some(_) => {
-                if self.selection_start < self.cursor {
-                    Some(self.selection_start..self.cursor)
-                } else {
-                    Some(self.cursor..self.selection_start)
-                }
-            }
+        self.selection = if let Some(mut selection) = self.selection {
+            selection.expand(self.cursor.index);
+            Some(selection)
+        } else {
+            Some(Selection::new(self.cursor.previous, self.cursor.index))
         }
     }
 }

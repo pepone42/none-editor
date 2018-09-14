@@ -153,13 +153,25 @@ use commands::*;
             "End",
             "Go to the end of the line",
             &["End","Shift-End"],
-            |v| v.end(),
+            |v| v.end(false),
+        ));
+        v.push(GenericViewCommand::into_boxed(
+            "EndSel",
+            "Go to the end of the line expanding the selection",
+            &["Shift-End"],
+            |v| v.end(true),
         ));
         v.push(GenericViewCommand::into_boxed(
             "Home",
             "Go to the beginning of the line",
-            &["Home","Shift-Home"],
-            |v| v.home(),
+            &["Home"],
+            |v| v.home(false),
+        ));
+        v.push(GenericViewCommand::into_boxed(
+            "HomeSel",
+            "Go to the beginning of the line expanding the selection",
+            &["Shift-Home"],
+            |v| v.home(true),
         ));
         v.push(GenericViewCommand::into_boxed(
             "Undo",
@@ -213,38 +225,77 @@ use commands::*;
         v.push(GenericViewCommand::into_boxed(
             "Up",
             "Move cursor up",
-            &["Up","Num-Up","Shift-Up","Shift-Num-Up"],
-            |v| v.move_cursor(Direction::Up),
+            &["Up","Num-Up"],
+            |v| v.move_cursor(Direction::Up, false),
         ));
         v.push(GenericViewCommand::into_boxed(
             "Down",
             "Move cursor down",
-            &["Down","Num-Down","Shift-Down","Shift-Num-Down"],
-            |v| v.move_cursor(Direction::Down),
+            &["Down","Num-Down"],
+            |v| v.move_cursor(Direction::Down, false),
         ));
         v.push(GenericViewCommand::into_boxed(
             "Left",
             "Move cursor left",
-            &["Left","Num-Left","Shift-Left","Shift-Num-Left"],
-            |v| v.move_cursor(Direction::Left),
+            &["Left","Num-Left"],
+            |v| v.move_cursor(Direction::Left, false),
         ));
         v.push(GenericViewCommand::into_boxed(
             "Right",
             "Move cursor right",
-            &["Right","Num-Right","Shift-Right","Shift-Num-Right"],
-            |v| v.move_cursor(Direction::Right),
+            &["Right","Num-Right"],
+            |v| v.move_cursor(Direction::Right, false),
         ));
+
+        v.push(GenericViewCommand::into_boxed(
+            "UpSel",
+            "Move cursor up expanding selection",
+            &["Shift-Up","Shift-Num-Up"],
+            |v| v.move_cursor(Direction::Up, true),
+        ));
+        v.push(GenericViewCommand::into_boxed(
+            "DownSel",
+            "Move cursor down expanding selection",
+            &["Shift-Down","Shift-Num-Down"],
+            |v| v.move_cursor(Direction::Down, true),
+        ));
+        v.push(GenericViewCommand::into_boxed(
+            "LeftSel",
+            "Move cursor left expanding selection",
+            &["Shift-Left","Shift-Num-Left"],
+            |v| v.move_cursor(Direction::Left, true),
+        ));
+        v.push(GenericViewCommand::into_boxed(
+            "RightSel",
+            "Move cursor right expanding selection",
+            &["Shift-Right","Shift-Num-Right"],
+            |v| v.move_cursor(Direction::Right, true),
+        ));
+
         v.push(GenericViewCommand::into_boxed(
             "PageUp",
             "Move page up",
             &["PageUp"],
-            |v| v.move_page(Direction::Up),
+            |v| v.move_page(Direction::Up, false),
         ));
         v.push(GenericViewCommand::into_boxed(
             "PageDown",
             "Move page down",
             &["PageDown"],
-            |v| v.move_page(Direction::Down),
+            |v| v.move_page(Direction::Down, false),
+        ));
+
+        v.push(GenericViewCommand::into_boxed(
+            "PageUpSel",
+            "Move page up expanding selection",
+            &["Shift-PageUp"],
+            |v| v.move_page(Direction::Up, true),
+        ));
+        v.push(GenericViewCommand::into_boxed(
+            "PageDownSel",
+            "Move page down expanding selection",
+            &["Shift-PageDown"],
+            |v| v.move_page(Direction::Down, true),
         ));
         v
     }

@@ -192,10 +192,10 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
                     height = h as _;
                     win.resize(width, height);
                 },
-                Event::KeyDown { keycode: Some(Keycode::LShift), .. }
-                | Event::KeyDown { keycode: Some(Keycode::RShift), .. } => win.views[win.current_view].start_selection(),
-                Event::KeyUp { keycode: Some(Keycode::LShift), .. }
-                | Event::KeyUp { keycode: Some(Keycode::RShift), .. } => win.views[win.current_view].end_selection(),
+                // Event::KeyDown { keycode: Some(Keycode::LShift), .. }
+                // | Event::KeyDown { keycode: Some(Keycode::RShift), .. } => win.views[win.current_view].start_selection(),
+                // Event::KeyUp { keycode: Some(Keycode::LShift), .. }
+                // | Event::KeyUp { keycode: Some(Keycode::RShift), .. } => win.views[win.current_view].end_selection(),
                 
                 Event::TextInput { text: t, .. } => {
                     t.chars().for_each(|c| win.views[win.current_view].insert_char(c));
