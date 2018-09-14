@@ -421,49 +421,61 @@ impl View {
         let line_spacing = screen.get_font_metrics("mono").line_spacing;
         let tabsize: i32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
 
-        let b = self.buffer.borrow();
         let first_visible_line = self.first_visible_line();
         let last_visible_line = first_visible_line + self.page_length();
-        let first_char = b.line_to_char(first_visible_line);
-        let mut idx = first_char;
-        let mut col = 0;
+        
 
+        
         SYNTAXSET.with(|s| {
             let synthax_definition = s.find_syntax_by_name(&self.syntax).unwrap();
 
             let mut highlighter = HighlightLines::new(synthax_definition, theme);
 
             let mut current_line = 0;
-            for l in b.lines().take(last_visible_line) {
+            let mut current_col = 0;
+            for l in self.buffer.borrow().lines().take(last_visible_line) {
                 let line = l.to_string(); // TODO: optimize
                 let ranges: Vec<(Style, &str)> = highlighter.highlight(&line);
                 //println!("{:?}", ranges);
 
                 if current_line >= first_visible_line {
+                    let mut idx = self.buffer.borrow().line_to_char(current_line);
+
                     for (style, text) in ranges {
                         let fg = Color::RGB(style.foreground.r, style.foreground.g, style.foreground.b);
                         for c in text.chars() {
+                            match self.selection {
+                                Some(Range { start, end }) if start <= idx && end > idx => {
+                                    let color = theme.settings.selection.unwrap_or(highlighting::Color::WHITE);
+                                    screen.set_color(Color::RGB(color.r,color.g,color.b));
+                                    screen.move_to(x, y);
+                                    screen.draw_rect(adv as _, line_spacing as _);
+                                }
+                                _ => ()
+                            }
                             match c {
                                 '\t' => {
-                                    let nbspace = ((col + tabsize) / tabsize) * tabsize;
-                                    col = nbspace;
+                                    let nbspace = ((current_col + tabsize) / tabsize) * tabsize;
+                                    current_col = nbspace;
                                     x = adv * nbspace;
                                 }
-                                '\r' => (),
+                                '\r' => idx -= 1,
                                 '\n' => (),
                                 _ => {
                                     screen.move_to(x, y);
                                     screen.set_color(fg);
                                     screen.draw_char(c);
                                     x += adv;
-                                    col += 1;
+                                    current_col += 1;
                                 }
                             }
+                            idx += 1;
                         }
+                        
                     }
                     y += line_spacing;
                     x = 0;
-                    col = 0;
+                    current_col = 0;
                 }
                 current_line += 1;
             }

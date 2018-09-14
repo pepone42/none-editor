@@ -211,7 +211,7 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
         // redraw only when needed
         if redraw {
             // clear
-            let theme = &ts.themes["base16-ocean.dark"];
+            let theme = &ts.themes["Solarized (dark)"];
             let bg = theme.settings.background.unwrap_or(highlighting::Color::BLACK);
             // canvas.set_draw_color(Color::RGB(bg.r, bg.g, bg.b));
             // canvas.clear();
