@@ -102,6 +102,10 @@ impl Selection {
     fn expand(&mut self, index: usize) {
         self.end = index;
     }
+    fn lower(&self) -> usize {
+        use std::cmp::min;
+        min(self.start,self.end)
+    }
 }
 
 impl Into<Range<usize>> for Selection {
@@ -251,7 +255,7 @@ impl View {
         {
             let mut b = self.buffer.borrow_mut();
             if let Some(r) = self.selection {
-                self.cursor.set(r.start);
+                self.cursor.set(r.lower());
                 b.remove(r);
             }
             b.insert_char(self.cursor.index, ch);
@@ -267,7 +271,7 @@ impl View {
         {
             let mut b = self.buffer.borrow_mut();
             if let Some(r) = self.selection {
-                self.cursor.set(r.start);
+                self.cursor.set(r.lower());
                 b.remove(r);
             }
             b.insert(self.cursor.index, &text);
@@ -282,7 +286,7 @@ impl View {
         self.push_state();
         if let Some(r) = self.selection {
             let mut b = self.buffer.borrow_mut();
-            self.cursor.set(r.start);
+            self.cursor.set(r.lower());
             b.remove(r);
         } else if self.cursor.index > 0 {
             self.cursor_left();
@@ -299,7 +303,7 @@ impl View {
         {
             let mut b = self.buffer.borrow_mut();
             if let Some(r) = self.selection {
-                self.cursor.set(r.start);
+                self.cursor.set(r.lower());
                 b.remove(r);
             } else if self.cursor.index < b.len_chars() {
                 b.remove(self.cursor.index..self.cursor.index + 1);
