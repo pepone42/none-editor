@@ -26,6 +26,14 @@ pub enum Indentation {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub enum LineFeed {
+    CR,
+    LF,
+    CRLF
+}
+
+
+#[derive(Debug, Clone, Copy)]
 pub enum Direction {
     Up,
     Down,
@@ -173,12 +181,14 @@ pub struct View {
     undo_stack: UndoStack,
     page_length: usize,
     syntax: String,
+    linefeed: LineFeed,
 }
 
 impl View {
     /// Create a new View for the given buffer
     pub fn new(buffer: Rc<RefCell<Buffer>>) -> Self {
-        View {
+
+        let mut v = View {
             buffer,
             cursor: Cursor::default(),
             first_visible_line: 0,
@@ -189,7 +199,10 @@ impl View {
             undo_stack: UndoStack::new(),
             page_length: 0,
             syntax: "Plain Text".to_owned(),
-        }
+            linefeed: LineFeed::LF,
+        };
+        v.detect_linefeed();
+        v
     }
 
     pub fn save(&mut self) -> io::Result<()> {
@@ -263,6 +276,14 @@ impl View {
         self.cursor_right();
         self.clear_selection();
         self.focus_on_cursor();
+    }
+
+    pub fn insert_linefeed(&mut self) {
+        match self.linefeed {
+            LineFeed::CRLF => self.insert("\r\n"),
+            LineFeed::CR => self.insert_char('\r'),
+            LineFeed::LF => self.insert_char('\n'),
+        }
     }
 
     /// insert the given string at the cursor position
@@ -472,6 +493,48 @@ impl View {
     /// the first visible line in the view
     pub fn first_visible_line(&self) -> usize {
         self.first_visible_line
+    }
+
+    pub fn detect_linefeed(&mut self) {
+        #[cfg(target_os = "windows")]
+        let linefeed = LineFeed::CRLF;
+        #[cfg(not(target_os = "windows"))]
+        let linefeed = LineFeed::LF;
+
+        let b = self.buffer.borrow();
+        if b.len_chars() == 0 {
+            self.linefeed = linefeed;
+            return;
+        }
+        
+        let mut cr = 0;
+        let mut lf = 0;
+        let mut crlf = 0;
+        
+        let mut chars = b.chars().take(1000);
+        while let Some(c) = chars.next() {
+            if c == '\r' {
+                if let Some(c2) = chars.next() {
+                    if c2 == '\n' {
+                        crlf += 1;
+                    } else {
+                        cr +=1;
+                    }
+                }
+            } else if c == '\n' {
+                lf+=1;
+            }
+        }
+        
+        self.linefeed = if cr>crlf && cr>lf {
+            LineFeed::CR
+        }
+        else if lf>crlf && lf>cr {
+            LineFeed::LF
+        }
+        else {
+            LineFeed::CRLF
+        }
     }
 
     pub fn detect_indentation(&self) -> Indentation {

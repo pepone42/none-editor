@@ -185,7 +185,7 @@ pub mod view {
             "Enter",
             "Insert the return char",
             &["Keypad Enter", "Return"],
-            |v| v.insert_char('\n'),
+            |v| v.insert_linefeed(),
         ));
         v.push(GenericViewCommand::new_box("Tab", "Add a tabulation", &["Tab"], |v| {
             if SETTINGS.read().unwrap().get("indentWithSpace").unwrap() {
