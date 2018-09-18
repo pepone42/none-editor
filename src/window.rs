@@ -56,7 +56,14 @@ impl EditorWindow {
         }
     }
 
-    fn add_new_view<P: AsRef<Path>>(&mut self, file: Option<P>) {
+    pub fn get_current_view(&self) -> &View {
+        &self.views[self.current_view]
+    }
+    pub fn get_current_view_mut(&mut self) -> &mut View {
+        &mut self.views[self.current_view]
+    }
+
+    pub fn add_new_view<P: AsRef<Path>>(&mut self, file: Option<P>) {
         let b = match file {
             None => Rc::new(RefCell::new(Buffer::new())),
             Some(file) => Rc::new(RefCell::new(Buffer::from_file(file.as_ref()).expect("File not found"))),
@@ -66,14 +73,16 @@ impl EditorWindow {
         v.detect_syntax();
 
         v.set_page_length(self.height / self.font_height - 1);
+        let viewid = self.views.len();
         self.views.push(v);
+        self.current_view = viewid;
     }
 
     fn resize(&mut self, width: usize, height: usize) {
         self.width = width;
         self.height = height;
         let page_length = self.height / self.font_height - 1;
-        self.views[self.current_view].set_page_length(page_length);
+        self.get_current_view_mut().set_page_length(page_length);
     }
     fn draw(&mut self, screen: &mut canvas::Screen, theme: &Theme) {
         screen.set_font("gui");
@@ -86,10 +95,16 @@ impl EditorWindow {
         screen.draw_rect(self.width as _, footer_height as _);
         screen.set_color(Color::RGB(bg.r, bg.g, bg.b));
 
-        let (line, col) = self.views[self.current_view].cursor_as_point();
-        screen.draw_str(&format!("({},{})", line, col));
+        let (line, col) = self.get_current_view().cursor_as_point();
+        screen.draw_str(&format!(
+            "({},{}) {} {}",
+            line,
+            col,
+            self.get_current_view().get_syntax(),
+            self.get_current_view().get_encoding()
+        ));
 
-        self.views[self.current_view].draw(screen, theme, 0, 0, self.width as _, self.height as _);
+        self.get_current_view().draw(screen, theme, 0, 0, self.width as _, self.height as _);
     }
 }
 
@@ -113,7 +128,7 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
 
     let mut screen = canvas::Screen::new();
 
-    let font_data = include_bytes!("monofont/UbuntuMono-Regular.ttf");
+    let font_data = include_bytes!("monofont/Inconsolata-Bold.ttf");
     screen.add_font_from_ubyte(&ttf_context, &texture_creator, "mono", font_data, FONT_SIZE);
 
     let font_data = include_bytes!("monofont/ubuntu.regular.ttf");

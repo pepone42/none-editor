@@ -1,16 +1,38 @@
+use chardet;
+use encoding::label::encoding_from_whatwg_label;
+use encoding::EncodingRef;
+use encoding::{DecoderTrap, EncoderTrap};
 use ropey;
 use ropey::Rope;
+use std::fmt;
 use std::fs::File;
+use std::fs::OpenOptions;
 use std::io;
+use std::io::prelude::Write;
+use std::io::Read;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 /// A text Buffer
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Buffer {
     rope: Rope,
     filename: Option<PathBuf>,
     is_dirty: bool,
+    encoding: EncodingRef,
+}
+
+impl fmt::Debug for Buffer {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Buffer {{rope: {:?}, filename: {:?}, is_dirty: {}, encoding: {} }}",
+            self.rope,
+            self.filename,
+            self.is_dirty,
+            self.encoding.name()
+        )
+    }
 }
 
 impl Buffer {
@@ -20,6 +42,7 @@ impl Buffer {
             rope: Rope::new(),
             filename: None,
             is_dirty: false,
+            encoding: encoding_from_whatwg_label("utf8").unwrap(),
         }
     }
     /// create a buffer from the given string
@@ -28,16 +51,38 @@ impl Buffer {
             rope: Rope::from_str(text),
             filename: None,
             is_dirty: false,
+            encoding: encoding_from_whatwg_label("utf8").unwrap(),
         }
     }
     /// create a buffer from the give file
     pub fn from_file(filename: &Path) -> Result<Self, io::Error> {
-        let r = Rope::from_reader(io::BufReader::new(File::open(filename)?))?;
+        let mut fh = io::BufReader::new(File::open(filename)?);
+        let mut reader: Vec<u8> = Vec::new();
+
+        // read file
+        fh.read_to_end(&mut reader)?;
+
+        // detect charset of the file
+        let result = chardet::detect(&reader);
+
+        // decode file into utf-8
+        let encoding = chardet::charset2encoding(&result.0);
+        println!("Detected Encoding: {}", encoding);
+        let coder = encoding_from_whatwg_label(encoding).unwrap();
+        let utf8reader = coder.decode(&reader, DecoderTrap::Replace).expect("Error");
+
+        let r = Rope::from_str(&utf8reader);
         Ok(Buffer {
             rope: r,
             filename: Some(filename.to_owned()),
             is_dirty: false,
+            encoding: coder,
         })
+    }
+
+    /// return the buffer current encoding
+    pub fn get_encoding(&self) -> EncodingRef {
+        self.encoding
     }
 
     /// return the filename
@@ -46,6 +91,33 @@ impl Buffer {
             Some(p) => Some(p.as_path()),
             None => None,
         }
+    }
+
+    /// save the current buffer to disk
+    pub fn save(&mut self) -> io::Result<()> {
+        if let Some(filename) = &self.filename {
+            if let Ok(r) = self.encoding.encode(&self.rope.to_string(), EncoderTrap::Replace) {
+                let mut file = OpenOptions::new().create(true).write(true).truncate(true).open(filename)?;
+                file.write_all(&r)?;
+                Ok(())
+            } else {
+                return Err(io::Error::new(io::ErrorKind::Other, "Error while encoding buffer"));
+            }
+        } else {
+            return Err(io::Error::new(io::ErrorKind::Other, "No filename associated"));
+        }
+    }
+
+    /// save the current buffer to disk with the given filename
+    pub fn save_as<P: AsRef<Path>>(&mut self,filename: P) -> io::Result<()> {
+        self.set_filename(filename.as_ref());
+        self.save()?;
+        Ok(())
+    }
+
+    /// set filename
+    pub fn set_filename(&mut self, filename: &Path) {
+        self.filename = Some(filename.to_owned());
     }
 
     /// Iterate over each char in the buffer

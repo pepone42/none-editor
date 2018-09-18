@@ -287,12 +287,21 @@ pub mod view {
             &["Shift-PageDown"],
             |v| v.move_page(Direction::Down, true),
         ));
+        v.push(GenericViewCommand::new_box(
+            "Save",
+            "Save file",
+            &["Ctrl-S"],
+            |v| {
+                v.save();
+            },
+        ));        
         v
     }
 }
 
 pub mod window {
     use commands::*;
+    use nfd;
     use window::WindowCmd;
     use SETTINGS;
 
@@ -302,9 +311,12 @@ pub mod window {
             "Open",
             "Open an existing file",
             &["Ctrl-O"],
-            |w| (println!("I should open something")),
+            |w| {
+                if let Ok(nfd::Response::Okay(file)) = nfd::open_file_dialog(None, None) {
+                    w.add_new_view(Some(file))
+                }
+            },
         ));
-
         v
     }
 }

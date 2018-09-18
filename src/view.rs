@@ -4,6 +4,8 @@ use std::ops::AddAssign;
 use std::ops::Range;
 use std::ops::SubAssign;
 use std::rc::Rc;
+use std::io;
+
 use SYNTAXSET;
 
 use syntect::easy::HighlightLines;
@@ -186,6 +188,22 @@ impl View {
         }
     }
 
+    pub fn save(&mut self) -> io::Result<()> {
+        {
+            let mut b = self.buffer.borrow_mut();
+            if b.get_filename().is_some() {
+                b.save()?;
+            } else {
+                use nfd;
+                if let Ok(nfd::Response::Okay(file)) = nfd::open_save_dialog(None, None) {
+                    b.save_as(file)?;
+                }
+            }
+        }
+        self.detect_syntax();
+        Ok(())
+    }
+
     /// set the page length of the view
     pub fn set_page_length(&mut self, page_length: usize) {
         self.page_length = page_length;
@@ -215,6 +233,16 @@ impl View {
             .and_then(|e| e.to_str())
             .and_then(|e| SYNTAXSET.with(|s| s.find_syntax_by_extension(e).map(|sd| sd.name.clone())))
             .unwrap_or_else(|| "Plain Text".to_owned());
+    }
+
+    /// get the current syntax
+    pub fn get_syntax(&self) -> &str {
+        &self.syntax
+    }
+
+    /// get the buffer encoding
+    pub fn get_encoding(&self) -> &str {
+        self.buffer.borrow().get_encoding().name()
     }
 
     /// insert the given char at the cursor position
@@ -534,8 +562,10 @@ impl View {
                                     current_col = nbspace;
                                     x = adv * nbspace;
                                 }
-                                '\r' => idx -= 1,
+                                '\r' => (), //idx -= 1,
                                 '\n' => (),
+                                // Bom hiding. TODO: rework
+                                '\u{feff}' | '\u{fffe}' => (),
                                 _ => {
                                     screen.move_to(x, y);
                                     screen.set_color(fg);

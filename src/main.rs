@@ -10,6 +10,9 @@ extern crate bitflags;
 extern crate config;
 extern crate directories;
 extern crate syntect;
+extern crate nfd;
+extern crate chardet;
+extern crate encoding;
 
 mod buffer;
 mod canvas;
