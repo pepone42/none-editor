@@ -39,8 +39,12 @@ impl<'t, 'ttf_context, 'rwops> GlyphCache<'t, 'ttf_context, 'rwops> {
     // cache if necessary and return a glyph
     pub fn get(&mut self, c: char, color: Color) -> CachedGlyph {
         if !self.glyphs.contains_key(&(c, color)) {
-            let s = self.font.render_char(c).blended(color).unwrap();
-            self.insert(c, color, &s)
+            if let Ok(s) = self.font.render_char(c).blended(color) {
+                self.insert(c, color, &s);
+            } else {
+                let s = self.font.render_char('-').blended(color).unwrap();
+                self.insert(c, color, &s);
+            }
         }
         self.glyphs[&(c, color)]
     }

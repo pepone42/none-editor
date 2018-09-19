@@ -1,4 +1,5 @@
 use chardet;
+use encoding;
 use encoding::label::encoding_from_whatwg_label;
 use encoding::EncodingRef;
 use encoding::{DecoderTrap, EncoderTrap};
@@ -68,7 +69,7 @@ impl Buffer {
         // decode file into utf-8
         let encoding = chardet::charset2encoding(&result.0);
         println!("Detected Encoding: {}", encoding);
-        let coder = encoding_from_whatwg_label(encoding).unwrap();
+        let coder = encoding_from_whatwg_label(encoding).unwrap_or(encoding::all::UTF_8);
         let utf8reader = coder.decode(&reader, DecoderTrap::Replace).expect("Error");
 
         let r = Rope::from_str(&utf8reader);

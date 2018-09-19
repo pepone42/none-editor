@@ -629,6 +629,7 @@ impl View {
                                     current_col = nbspace;
                                     x = adv * nbspace;
                                 }
+                                '\0' => (),
                                 '\r' => (), //idx -= 1,
                                 '\n' => (),
                                 // Bom hiding. TODO: rework
