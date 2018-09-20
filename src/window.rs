@@ -19,12 +19,20 @@ use keybinding;
 use keybinding::KeyBinding;
 use view::View;
 
+#[derive(Debug, Clone, Copy)]
+pub struct Geometry {
+    pub x: i32,
+    pub y: i32,
+    pub w: u32,
+    pub h: u32,
+    pub font_height: u32,
+    pub font_advance: u32,
+}
+
 pub struct EditorWindow {
     views: Vec<View>,
     buffers: Vec<Rc<RefCell<Buffer>>>,
-    width: usize,
-    height: usize,
-    font_height: usize,
+    geometry: Geometry,
     current_view: usize,
 }
 
@@ -35,23 +43,27 @@ pub trait WindowCmd {
     fn run(&mut self, &mut EditorWindow);
 }
 
+
+
 const FONT_SIZE: u16 = 13;
 
 impl EditorWindow {
-    pub fn new<P: AsRef<Path>>(width: usize, height: usize, font_height: usize, file: Option<P>) -> Self {
-        let mut w = EditorWindow::init(width, height, font_height);
+    pub fn new<P: AsRef<Path>>(geometry: Geometry, file: Option<P>) -> Self {
+        assert_eq!(geometry.x,0);
+        assert_eq!(geometry.y,0);        
+        let mut w = EditorWindow::init(geometry);
         w.add_new_view(file);
         w
     }
-    fn init(width: usize, height: usize, font_height: usize) -> Self {
+    fn init(geometry: Geometry) -> Self {
         let views = Vec::new();
         let buffers = Vec::new();
+        assert_eq!(geometry.x,0);
+        assert_eq!(geometry.y,0);
         EditorWindow {
             views,
             buffers,
-            width,
-            height,
-            font_height,
+            geometry,
             current_view: 0,
         }
     }
@@ -69,20 +81,25 @@ impl EditorWindow {
             Some(file) => Rc::new(RefCell::new(Buffer::from_file(file.as_ref()).expect("File not found"))),
         };
         self.buffers.push(b.clone());
-        let mut v = View::new(b.clone());
+        let mut geometry = self.geometry;
+        geometry.h -= 15; // footer TODO calculate it
+        let mut v = View::new(b.clone(),geometry);
         v.detect_syntax();
 
-        v.set_page_length(self.height / self.font_height - 1);
+        //v.set_page_length(self.height / self.font_height - 1);
         let viewid = self.views.len();
         self.views.push(v);
         self.current_view = viewid;
     }
 
-    fn resize(&mut self, width: usize, height: usize) {
-        self.width = width;
-        self.height = height;
-        let page_length = self.height / self.font_height - 1;
-        self.get_current_view_mut().set_page_length(page_length);
+    fn resize(&mut self, width: u32, height: u32) {
+        self.geometry.w = width;
+        self.geometry.h = height;
+        let mut geometry = self.geometry;
+        geometry.h -= 15; // footer TODO calculate it
+        for i in 0..self.views.len() {
+            self.views[i].relayout(geometry);
+        }
     }
     fn draw(&mut self, screen: &mut canvas::Screen, theme: &Theme) {
         screen.set_font("gui");
@@ -91,20 +108,20 @@ impl EditorWindow {
         let fg = theme.settings.foreground.unwrap_or(highlighting::Color::BLACK);
         let bg = theme.settings.background.unwrap_or(highlighting::Color::WHITE);
         screen.set_color(Color::RGB(fg.r, fg.g, fg.b));
-        screen.move_to(0, (self.height - (footer_height as usize)) as i32);
-        screen.draw_rect(self.width as _, footer_height as _);
+        screen.move_to(0, self.geometry.h as i32 - footer_height);
+        screen.draw_rect(self.geometry.w as _, footer_height as _);
         screen.set_color(Color::RGB(bg.r, bg.g, bg.b));
 
         let (line, col) = self.get_current_view().cursor_as_point();
         screen.draw_str(&format!(
-            "({},{}) {} {}",
+            "({},{})    {}    {}",
             line,
             col,
             self.get_current_view().get_syntax(),
             self.get_current_view().get_encoding()
         ));
 
-        self.get_current_view().draw(screen, theme, 0, 0, self.width as _, self.height as _);
+        self.get_current_view().draw(screen, theme);
     }
 }
 
@@ -136,7 +153,8 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
 
     // create window. TODO: passing font_height as parameter feel off
     let font_height = screen.get_font_metrics("mono").line_spacing;
-    let mut win = EditorWindow::new(width, height, font_height as _, file);
+    let font_advance = screen.find_glyph_metrics("mono",' ').unwrap().advance;
+    let mut win = EditorWindow::new(Geometry{x:0,y:0,w:width as _,h:height as _,font_height: font_height as u32,font_advance: font_advance as u32}, file);
 
     // create view and windows cmd binding
     let mut view_cmd = commands::view::get_all();
@@ -204,7 +222,7 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
                 } => {
                     width = w as _;
                     height = h as _;
-                    win.resize(width, height);
+                    win.resize(width as _, height as _);
                 }
 
                 Event::TextInput { text: t, .. } => {

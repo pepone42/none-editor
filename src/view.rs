@@ -14,8 +14,10 @@ use syntect::highlighting::{Style, Theme};
 
 use buffer::Buffer;
 use canvas::{Color, Screen};
+use window::Geometry;
 use keybinding::KeyBinding;
 use SETTINGS;
+
 
 #[derive(Debug, Clone, Copy)]
 pub enum Indentation {
@@ -169,42 +171,50 @@ impl SubAssign<usize> for Cursor {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct Viewport {
+    line_start: usize,
+    line_end: usize,
+    col_start: usize,
+    col_end: usize,
+}
+
 #[derive(Debug)]
 pub struct View {
     buffer: Rc<RefCell<Buffer>>,
     cursor: Cursor,
-    first_visible_line: usize,
-    first_visible_char: usize,
     selection: Option<Selection>,
-    // in_selection: bool,
-    // selection_start: usize,
     undo_stack: UndoStack,
-    page_length: usize,
     syntax: String,
     linefeed: LineFeed,
+    geometry: Geometry,
+    viewport: Viewport,
 }
 
 impl View {
     /// Create a new View for the given buffer
-    pub fn new(buffer: Rc<RefCell<Buffer>>) -> Self {
-
+    pub fn new(buffer: Rc<RefCell<Buffer>>, geometry: Geometry) -> Self {
+        let viewport = Viewport {
+            line_start : 0,
+            col_start : 0,
+            line_end : (geometry.h/geometry.font_height) as usize,
+            col_end : (geometry.w/geometry.font_advance) as usize,
+        };
         let mut v = View {
             buffer,
             cursor: Cursor::default(),
-            first_visible_line: 0,
-            first_visible_char: 0,
             selection: None,
-            // in_selection: false,
-            // selection_start: 0,
             undo_stack: UndoStack::new(),
-            page_length: 0,
             syntax: "Plain Text".to_owned(),
             linefeed: LineFeed::LF,
+            geometry,
+            viewport,
         };
         v.detect_linefeed();
         v
     }
 
+    /// save the underlying buffer to disk
     pub fn save(&mut self) -> io::Result<()> {
         {
             let mut b = self.buffer.borrow_mut();
@@ -221,12 +231,16 @@ impl View {
         Ok(())
     }
 
-    /// set the page length of the view
-    pub fn set_page_length(&mut self, page_length: usize) {
-        self.page_length = page_length;
-    }
+    /// return the number of line visible on screen
     pub fn page_length(&self) -> usize {
-        self.page_length
+        self.viewport.line_end - self.viewport.line_start
+    }
+
+    /// resize the view and update the viewport accordingly
+    pub fn relayout(&mut self, geometry: Geometry) {
+        self.geometry = geometry;
+        self.viewport.line_end = self.viewport.line_start + (self.geometry.h/self.geometry.font_height) as usize - 1;
+        self.viewport.col_end = self.viewport.col_start + (self.geometry.w/self.geometry.font_advance) as usize - 1;
     }
 
     fn get_state(&self) -> State {
@@ -451,7 +465,7 @@ impl View {
 
     /// move one page in the given direction
     pub fn move_page(&mut self, dir: Direction, expand_selection: bool) {
-        for _ in 0..self.page_length {
+        for _ in 0..self.page_length() {
             self.move_cursor(dir, expand_selection);
         }
         self.focus_on_cursor();
@@ -490,10 +504,10 @@ impl View {
         self.cursor.set(idx);
     }
 
-    /// the first visible line in the view
-    pub fn first_visible_line(&self) -> usize {
-        self.first_visible_line
-    }
+    // /// the first visible line in the view
+    // pub fn first_visible_line(&self) -> usize {
+    //     self.first_visible_line
+    // }
 
     pub fn detect_linefeed(&mut self) {
         #[cfg(target_os = "windows")]
@@ -575,27 +589,30 @@ impl View {
     /// move the view so that the cursor is visible
     pub fn focus_on_cursor(&mut self) {
         use std::cmp::min;
+        let pagelen = self.page_length();
         let l = self.line_idx();
-        if l < self.first_visible_line {
-            self.first_visible_line = l;
+        if l < self.viewport.line_start {
+            self.viewport.line_start = l;
         }
-        if l > self.first_visible_line + self.page_length {
-            self.first_visible_line = l - self.page_length;
+        if l > self.viewport.line_start + pagelen {
+            self.viewport.line_start = l - pagelen;
         }
         let b = self.buffer.borrow();
-        self.first_visible_line = min(self.first_visible_line, b.len_lines());
+        self.viewport.line_start = min(self.viewport.line_start, b.len_lines());
+        self.viewport.line_end = self.viewport.line_start + pagelen;
     }
 
-    pub fn draw(&self, screen: &mut Screen, theme: &Theme, x: i32, y: i32, w: u32, h: u32) {
+    /// Draw the vew on the given screen
+    pub fn draw(&self, screen: &mut Screen, theme: &Theme) {
         let mut y = 0;
         let mut x = 0;
 
-        let adv = screen.find_glyph_metrics("mono", ' ').unwrap().advance;
-        let line_spacing = screen.get_font_metrics("mono").line_spacing;
+        let adv = self.geometry.font_advance as i32;
+        let line_spacing = self.geometry.font_height as i32;
         let tabsize: i32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
 
-        let first_visible_line = self.first_visible_line();
-        let last_visible_line = first_visible_line + self.page_length();
+        let first_visible_line = self.viewport.line_start;
+        let last_visible_line = self.viewport.line_end;
 
         screen.set_font("mono");
         SYNTAXSET.with(|s| {
@@ -688,16 +705,20 @@ mod tests {
     use std::cell::RefCell;
     use std::rc::Rc;
     use view::View;
+    use window::Geometry;
+
+    const GEO: Geometry = Geometry{x:0,y:0,w:0,h:0,font_advance:1,font_height:0};
+
 
     #[test]
     fn new_view() {
         let b = Rc::new(RefCell::new(Buffer::new()));
-        let v = View::new(b);
+        let v = View::new(b,GEO);
     }
     #[test]
     fn insert() {
         let b = Rc::new(RefCell::new(Buffer::from_str("text")));
-        let mut v = View::new(b);
+        let mut v = View::new(b,GEO);
         v.insert_char('r');
         assert_eq!(v.to_string(), "rtext");
         v.insert_char('e');
@@ -711,8 +732,8 @@ mod tests {
     #[test]
     fn multiple_view() {
         let buf = Rc::new(RefCell::new(Buffer::from_str("text")));
-        let mut v1 = View::new(buf.clone());
-        let mut v2 = View::new(buf.clone());
+        let mut v1 = View::new(buf.clone(),GEO);
+        let mut v2 = View::new(buf.clone(),GEO);
         v1.insert_char('r');
         assert_eq!(v2.to_string(), "rtext");
         v2.insert_char('e');
@@ -723,7 +744,7 @@ mod tests {
     #[should_panic]
     fn set_index_oob() {
         let b = Rc::new(RefCell::new(Buffer::from_str("text")));
-        let mut v = View::new(b);
+        let mut v = View::new(b,GEO);
         v.set_index(5);
     }
 
@@ -732,7 +753,7 @@ mod tests {
         let b = Rc::new(RefCell::new(Buffer::from_str(
             "text\nhello\nme!\nan other very long line",
         )));
-        let mut v = View::new(b);
+        let mut v = View::new(b,GEO);
         v.set_index(11);
         v.cursor_up();
         assert_eq!(v.index(), 5);
@@ -755,7 +776,7 @@ mod tests {
         let b = Rc::new(RefCell::new(Buffer::from_str(
             "a long text line\nhello\nme!\nan other very long line",
         )));
-        let mut v = View::new(b);
+        let mut v = View::new(b,GEO);
         v.cursor_down();
         assert_eq!(v.index(), 17);
         v.cursor_down();
@@ -778,7 +799,7 @@ mod tests {
     #[test]
     fn cursor_left() {
         let b = Rc::new(RefCell::new(Buffer::from_str("text\nhello\n")));
-        let mut v = View::new(b);
+        let mut v = View::new(b,GEO);
         v.cursor_left();
         assert_eq!(v.index(), 0);
 
@@ -797,7 +818,7 @@ mod tests {
     #[test]
     fn cursor_right() {
         let b = Rc::new(RefCell::new(Buffer::from_str("tt\nh\n")));
-        let mut v = View::new(b);
+        let mut v = View::new(b,GEO);
         v.cursor_right();
         assert_eq!(v.index(), 1);
         v.cursor_right();
@@ -814,7 +835,7 @@ mod tests {
     #[test]
     fn backspace() {
         let b = Rc::new(RefCell::new(Buffer::from_str("hello")));
-        let mut v = View::new(b);
+        let mut v = View::new(b,GEO);
         v.backspace();
         assert_eq!(v.to_string(), "hello");
         v.set_index(2);
@@ -824,7 +845,7 @@ mod tests {
     #[test]
     fn delete_at_cursor() {
         let b = Rc::new(RefCell::new(Buffer::from_str("hello")));
-        let mut v = View::new(b);
+        let mut v = View::new(b,GEO);
         v.delete_at_cursor();
         assert_eq!(v.to_string(), "ello");
         v.set_index(3);
