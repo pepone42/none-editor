@@ -326,7 +326,7 @@ impl View {
         } else if self.cursor.index > 0 {
             self.cursor_left();
             let mut b = self.buffer.borrow_mut();
-            b.remove(self.cursor.index..self.cursor.index + 1);
+            b.remove(self.cursor.index..self.cursor.previous);
         }
         self.clear_selection();
         self.focus_on_cursor();
@@ -336,12 +336,14 @@ impl View {
     pub fn delete_at_cursor(&mut self) {
         self.push_state();
         {
-            let mut b = self.buffer.borrow_mut();
             if let Some(r) = self.selection {
                 self.cursor.set(r.lower());
-                b.remove(r);
-            } else if self.cursor.index < b.len_chars() {
-                b.remove(self.cursor.index..self.cursor.index + 1);
+                self.buffer.borrow_mut().remove(r);
+            } else if self.cursor.index < self.buffer.borrow().len_chars() {
+                let curs = self.cursor.index;
+                self.cursor_right();
+                self.buffer.borrow_mut().remove(self.cursor.previous..self.cursor.index);
+                self.cursor.set(curs);
             }
         }
         self.clear_selection();
