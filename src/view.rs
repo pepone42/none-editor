@@ -9,9 +9,8 @@ use styling::StyledLineIterator;
 
 use styling::SYNTAXSET;
 
-use syntect::easy::HighlightLines;
 use syntect::highlighting;
-use syntect::highlighting::{Style, Theme};
+use syntect::highlighting::Theme;
 
 use buffer::Buffer;
 use canvas::{Color, Screen};
@@ -191,7 +190,6 @@ pub struct View<'a> {
     cursor: Cursor,
     selection: Option<Selection>,
     undo_stack: UndoStack,
-    syntax: String,
     linefeed: LineFeed,
     geometry: Geometry,
     viewport: Viewport,
@@ -212,7 +210,6 @@ impl<'a> View<'a> {
             cursor: Cursor::default(),
             selection: None,
             undo_stack: UndoStack::new(),
-            syntax: "Plain Text".to_owned(),
             linefeed: LineFeed::LF,
             geometry,
             viewport,
@@ -278,12 +275,7 @@ impl<'a> View<'a> {
     /// detect language from extension
     pub fn detect_syntax(&mut self) {
         let b = self.buffer.borrow();
-        self.syntax = b
-            .get_filename()
-            .and_then(|f| f.extension())
-            .and_then(|e| e.to_str())
-            .and_then(|e| SYNTAXSET.find_syntax_by_extension(e).map(|sd| sd.name.clone()))
-            .unwrap_or_else(|| "Plain Text".to_owned());
+
         let plain_text = SYNTAXSET.find_syntax_plain_text();
         let syntax = match self.get_extension() {
             None => plain_text,
@@ -297,8 +289,11 @@ impl<'a> View<'a> {
     }
 
     /// get the current syntax
-    pub fn get_syntax(&self) -> &str {
-        &self.syntax
+    pub fn get_syntax(&'a self) -> &'a str {
+        match &self.styling {
+            None => &"Plain text",
+            Some(s) => &s.syntax.name,
+        }
     }
 
     /// get the buffer encoding
