@@ -1,12 +1,13 @@
 use std::cell::RefCell;
+use std::io;
 use std::ops::Add;
 use std::ops::AddAssign;
 use std::ops::Range;
 use std::ops::SubAssign;
 use std::rc::Rc;
-use std::io;
+use styling::StyledLineIterator;
 
-use SYNTAXSET;
+use styling::SYNTAXSET;
 
 use syntect::easy::HighlightLines;
 use syntect::highlighting;
@@ -14,10 +15,10 @@ use syntect::highlighting::{Style, Theme};
 
 use buffer::Buffer;
 use canvas::{Color, Screen};
-use window::Geometry;
 use keybinding::KeyBinding;
+use styling::StylingCache;
+use window::Geometry;
 use SETTINGS;
-
 
 #[derive(Debug, Clone, Copy)]
 pub enum Indentation {
@@ -31,9 +32,8 @@ pub enum Indentation {
 pub enum LineFeed {
     CR,
     LF,
-    CRLF
+    CRLF,
 }
-
 
 #[derive(Debug, Clone, Copy)]
 pub enum Direction {
@@ -114,7 +114,7 @@ impl Selection {
     }
     fn lower(&self) -> usize {
         use std::cmp::min;
-        min(self.start,self.end)
+        min(self.start, self.end)
     }
 }
 
@@ -174,13 +174,19 @@ impl SubAssign<usize> for Cursor {
 #[derive(Debug, Clone, Copy)]
 struct Viewport {
     line_start: usize,
-    line_end: usize,
+    heigth: usize,
     col_start: usize,
-    col_end: usize,
+    width: usize,
+}
+
+impl Viewport {
+    fn line_end(&self) -> usize {
+        self.line_start + self.heigth
+    }
 }
 
 #[derive(Debug)]
-pub struct View {
+pub struct View<'a> {
     buffer: Rc<RefCell<Buffer>>,
     cursor: Cursor,
     selection: Option<Selection>,
@@ -189,16 +195,17 @@ pub struct View {
     linefeed: LineFeed,
     geometry: Geometry,
     viewport: Viewport,
+    styling: Option<StylingCache<'a>>,
 }
 
-impl View {
+impl<'a> View<'a> {
     /// Create a new View for the given buffer
     pub fn new(buffer: Rc<RefCell<Buffer>>, geometry: Geometry) -> Self {
         let viewport = Viewport {
-            line_start : 0,
-            col_start : 0,
-            line_end : (geometry.h/geometry.font_height) as usize,
-            col_end : (geometry.w/geometry.font_advance) as usize,
+            line_start: 0,
+            col_start: 0,
+            heigth: (geometry.h / geometry.font_height) as usize,
+            width: (geometry.w / geometry.font_advance) as usize,
         };
         let mut v = View {
             buffer,
@@ -209,6 +216,7 @@ impl View {
             linefeed: LineFeed::LF,
             geometry,
             viewport,
+            styling: None,
         };
         v.detect_linefeed();
         v
@@ -233,14 +241,16 @@ impl View {
 
     /// return the number of line visible on screen
     pub fn page_length(&self) -> usize {
-        self.viewport.line_end - self.viewport.line_start
+        self.viewport.heigth
     }
 
     /// resize the view and update the viewport accordingly
     pub fn relayout(&mut self, geometry: Geometry) {
         self.geometry = geometry;
-        self.viewport.line_end = self.viewport.line_start + (self.geometry.h/self.geometry.font_height) as usize - 1;
-        self.viewport.col_end = self.viewport.col_start + (self.geometry.w/self.geometry.font_advance) as usize - 1;
+        self.viewport.heigth = (self.geometry.h / self.geometry.font_height) as usize - 1;
+        self.viewport.width = (self.geometry.w / self.geometry.font_advance) as usize - 1;
+        let end = self.viewport.line_end();
+        self.expand_styling(end);
     }
 
     fn get_state(&self) -> State {
@@ -255,6 +265,16 @@ impl View {
         self.undo_stack.push(&state);
     }
 
+    /// return the file extension or None if there is no file attached to the buffer
+    pub fn get_extension(&self) -> Option<String> {
+        self.buffer
+            .borrow()
+            .get_filename()
+            .and_then(|f| f.extension())
+            .and_then(|e| e.to_str())
+            .map(|x| x.to_string())
+    }
+
     /// detect language from extension
     pub fn detect_syntax(&mut self) {
         let b = self.buffer.borrow();
@@ -262,8 +282,18 @@ impl View {
             .get_filename()
             .and_then(|f| f.extension())
             .and_then(|e| e.to_str())
-            .and_then(|e| SYNTAXSET.with(|s| s.find_syntax_by_extension(e).map(|sd| sd.name.clone())))
+            .and_then(|e| SYNTAXSET.find_syntax_by_extension(e).map(|sd| sd.name.clone()))
             .unwrap_or_else(|| "Plain Text".to_owned());
+        let plain_text = SYNTAXSET.find_syntax_plain_text();
+        let syntax = match self.get_extension() {
+            None => plain_text,
+            Some(ext) => SYNTAXSET.find_syntax_by_extension(&ext).unwrap_or(plain_text),
+        };
+        if let Some(ref mut style) = self.styling {
+            style.syntax = syntax;
+        } else {
+            self.styling = Some(StylingCache::new(syntax));
+        }
     }
 
     /// get the current syntax
@@ -276,8 +306,40 @@ impl View {
         self.buffer.borrow().get_encoding().name()
     }
 
+    fn update_styling(&mut self, r: Range<usize>) {
+        if let Some(ref mut style) = self.styling {
+            style.update(r, &self.buffer.borrow());
+        }
+    }
+    fn expand_styling(&mut self, end: usize) {
+        if let Some(ref mut style) = self.styling {
+            style.expand(end, &self.buffer.borrow());
+        }
+    }
+
+    pub fn edit(&mut self, r: Range<usize>, text: &str) {
+        let start = self.line_idx();
+        self.push_state();
+        {
+            let mut b = self.buffer.borrow_mut();
+            if r.start != r.end {
+                self.cursor.set(r.start);
+                b.remove(r.clone());
+            }
+            b.insert(r.start, text);
+        } // unborrow buffer
+          //self.cursor_right();
+        self.set_index(r.start + text.chars().count());
+        self.clear_selection();
+        self.focus_on_cursor();
+
+        let end = self.viewport.line_end();
+        self.update_styling(start..end);
+    }
+
     /// insert the given char at the cursor position
     pub fn insert_char(&mut self, ch: char) {
+        let start = self.line_idx();
         self.push_state();
         {
             let mut b = self.buffer.borrow_mut();
@@ -290,6 +352,9 @@ impl View {
         self.cursor_right();
         self.clear_selection();
         self.focus_on_cursor();
+
+        let end = self.viewport.line_end();
+        self.update_styling(start..end);
     }
 
     pub fn insert_linefeed(&mut self) {
@@ -302,6 +367,7 @@ impl View {
 
     /// insert the given string at the cursor position
     pub fn insert(&mut self, text: &str) {
+        let start = self.line_idx();
         self.push_state();
         {
             let mut b = self.buffer.borrow_mut();
@@ -314,10 +380,14 @@ impl View {
         self.cursor += text.chars().count();
         self.clear_selection();
         self.focus_on_cursor();
+
+        let end = self.viewport.line_end();
+        self.update_styling(start..end);
     }
 
     /// delete the charater directly to the left of cursor
     pub fn backspace(&mut self) {
+        let start = self.line_idx();
         self.push_state();
         if let Some(r) = self.selection {
             let mut b = self.buffer.borrow_mut();
@@ -330,10 +400,14 @@ impl View {
         }
         self.clear_selection();
         self.focus_on_cursor();
+
+        let end = self.viewport.line_end();
+        self.update_styling(start..end);
     }
 
     /// delete the charater under the cursor
     pub fn delete_at_cursor(&mut self) {
+        let start = self.line_idx();
         self.push_state();
         {
             if let Some(r) = self.selection {
@@ -348,6 +422,8 @@ impl View {
         }
         self.clear_selection();
         self.focus_on_cursor();
+        let end = self.viewport.line_end();
+        self.update_styling(start..end);
     }
 
     /// return a newly allocated string of the buffer
@@ -367,6 +443,9 @@ impl View {
             self.cursor = state.cursor;
         }
         self.focus_on_cursor();
+        let start = self.line_idx();
+        let end = self.viewport.line_end();
+        self.update_styling(start..end);
     }
 
     /// redo the last undo action
@@ -376,6 +455,9 @@ impl View {
             self.cursor = state.cursor;
         }
         self.focus_on_cursor();
+        let start = self.line_idx();
+        let end = self.viewport.line_end();
+        self.update_styling(start..end);
     }
 
     /// return the currently selection
@@ -522,11 +604,11 @@ impl View {
             self.linefeed = linefeed;
             return;
         }
-        
+
         let mut cr = 0;
         let mut lf = 0;
         let mut crlf = 0;
-        
+
         let mut chars = b.chars().take(1000);
         while let Some(c) = chars.next() {
             if c == '\r' {
@@ -534,21 +616,19 @@ impl View {
                     if c2 == '\n' {
                         crlf += 1;
                     } else {
-                        cr +=1;
+                        cr += 1;
                     }
                 }
             } else if c == '\n' {
-                lf+=1;
+                lf += 1;
             }
         }
-        
-        self.linefeed = if cr>crlf && cr>lf {
+
+        self.linefeed = if cr > crlf && cr > lf {
             LineFeed::CR
-        }
-        else if lf>crlf && lf>cr {
+        } else if lf > crlf && lf > cr {
             LineFeed::LF
-        }
-        else {
+        } else {
             LineFeed::CRLF
         }
     }
@@ -595,13 +675,20 @@ impl View {
         let l = self.line_idx();
         if l < self.viewport.line_start {
             self.viewport.line_start = l;
+            //self.viewport.heigth = self.viewport.line_start + pagelen + 1;
         }
-        if l > self.viewport.line_start + pagelen {
+        if l > self.viewport.line_end() {
             self.viewport.line_start = l - pagelen;
+            //self.viewport.line_end = self.viewport.line_start + pagelen + 1;
         }
-        let b = self.buffer.borrow();
-        self.viewport.line_start = min(self.viewport.line_start, b.len_lines());
-        self.viewport.line_end = self.viewport.line_start + pagelen;
+        {
+            let b = self.buffer.borrow();
+            self.viewport.line_start = min(self.viewport.line_start, b.len_lines());
+            //self.viewport.line_end = self.viewport.line_start + pagelen + 1;
+        }
+
+        let end = self.viewport.line_end();
+        self.expand_styling(end);
     }
 
     /// Draw the vew on the given screen
@@ -614,62 +701,126 @@ impl View {
         let tabsize: i32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
 
         let first_visible_line = self.viewport.line_start;
-        let last_visible_line = self.viewport.line_end;
+        //let last_visible_line = self.viewport.line_end();
+        let page_len = self.viewport.heigth;
+
+        let mut current_col = 0;
 
         screen.set_font("mono");
-        SYNTAXSET.with(|s| {
-            let synthax_definition = s.find_syntax_by_name(&self.syntax).unwrap();
 
-            let mut highlighter = HighlightLines::new(synthax_definition, theme);
-
-            let mut current_col = 0;
-            for (line_index, l) in self.buffer.borrow().lines().take(last_visible_line).enumerate() {
-                let line = l.to_string(); // TODO: optimize
-                let ranges: Vec<(Style, &str)> = highlighter.highlight(&line);
-
-                if line_index >= first_visible_line {
-                    let mut idx = self.buffer.borrow().line_to_char(line_index);
-
-                    for (style, text) in ranges {
-                        let fg = Color::RGB(style.foreground.r, style.foreground.g, style.foreground.b);
-                        for c in text.chars() {
-                            match self.selection {
-                                Some(sel) if sel.contains(idx) => {
-                                    let color = theme.settings.selection.unwrap_or(highlighting::Color::WHITE);
-                                    screen.set_color(Color::RGB(color.r, color.g, color.b));
-                                    screen.move_to(x, y);
-                                    screen.draw_rect(adv as _, line_spacing as _);
-                                }
-                                _ => (),
-                            }
-                            match c {
-                                '\t' => {
-                                    let nbspace = ((current_col + tabsize) / tabsize) * tabsize;
-                                    current_col = nbspace;
-                                    x = adv * nbspace;
-                                }
-                                '\0' => (),
-                                '\r' => (), //idx -= 1,
-                                '\n' => (),
-                                // Bom hiding. TODO: rework
-                                '\u{feff}' | '\u{fffe}' => (),
-                                _ => {
-                                    screen.move_to(x, y);
-                                    screen.set_color(fg);
-                                    screen.draw_char(c);
-                                    x += adv;
-                                    current_col += 1;
-                                }
-                            }
-                            idx += 1;
-                        }
+        let mut line_index = first_visible_line;
+        for line in self
+            .buffer
+            .borrow()
+            .lines()
+            .skip(first_visible_line)
+            .take(page_len+1)
+        {
+            //let styling = &self.styling;
+            // let result = match &self.styling {
+            //     Some(s) => Some(s.result[line_index].clone()),
+            //     None => None
+            // };
+            let mut style = self
+                .styling
+                .as_ref()
+                .and_then(|s| s.result.get(line_index))
+                .map(|s| StyledLineIterator::new_for(s.to_vec()));
+            //let mut style = result.map(StyledLineIterator::new_for);
+            let mut idx = self.buffer.borrow().line_to_char(line_index);
+            for c in line.chars() {
+                let fg = match style.as_mut().and_then(|s| s.next()) {
+                    None => Color::RGB(255, 255, 255),
+                    Some(s) => Color::RGB(s.foreground.r, s.foreground.g, s.foreground.b),
+                };
+                match self.selection {
+                    Some(sel) if sel.contains(idx) => {
+                        let color = theme.settings.selection.unwrap_or(highlighting::Color::WHITE);
+                        screen.set_color(Color::RGB(color.r, color.g, color.b));
+                        screen.move_to(x, y);
+                        screen.draw_rect(adv as _, line_spacing as _);
                     }
-                    y += line_spacing;
-                    x = 0;
-                    current_col = 0;
+                    _ => (),
                 }
+                match c {
+                    '\t' => {
+                        let nbspace = ((current_col + tabsize) / tabsize) * tabsize;
+                        current_col = nbspace;
+                        x = adv * nbspace;
+                    }
+                    '\0' => (),
+                    '\r' => (), //idx -= 1,
+                    '\n' => (),
+                    // Bom hiding. TODO: rework
+                    '\u{feff}' | '\u{fffe}' => (),
+                    _ => {
+                        screen.move_to(x, y);
+                        screen.set_color(fg);
+                        screen.draw_char(c);
+                        x += adv;
+                        current_col += 1;
+                    }
+                }
+                idx += 1;
             }
-        });
+            line_index += 1;
+            y += line_spacing;
+            x = 0;
+            current_col = 0;
+        }
+
+        // //SYNTAXSET.with(|s| {
+        // let synthax_definition = SYNTAXSET.find_syntax_by_name(&self.syntax).unwrap();
+
+        // let mut highlighter = HighlightLines::new(synthax_definition, theme);
+
+        // for (line_index, l) in self.buffer.borrow().lines().take(last_visible_line).enumerate() {
+        //     let line = l.to_string(); // TODO: optimize
+        //     let ranges: Vec<(Style, &str)> = highlighter.highlight(&line, &SYNTAXSET);
+
+        //     if line_index >= first_visible_line {
+        //         let mut idx = self.buffer.borrow().line_to_char(line_index);
+
+        //         for (style, text) in ranges {
+        //             let fg = Color::RGB(style.foreground.r, style.foreground.g, style.foreground.b);
+        //             for c in text.chars() {
+        //                 match self.selection {
+        //                     Some(sel) if sel.contains(idx) => {
+        //                         let color = theme.settings.selection.unwrap_or(highlighting::Color::WHITE);
+        //                         screen.set_color(Color::RGB(color.r, color.g, color.b));
+        //                         screen.move_to(x, y);
+        //                         screen.draw_rect(adv as _, line_spacing as _);
+        //                     }
+        //                     _ => (),
+        //                 }
+        //                 match c {
+        //                     '\t' => {
+        //                         let nbspace = ((current_col + tabsize) / tabsize) * tabsize;
+        //                         current_col = nbspace;
+        //                         x = adv * nbspace;
+        //                     }
+        //                     '\0' => (),
+        //                     '\r' => (), //idx -= 1,
+        //                     '\n' => (),
+        //                     // Bom hiding. TODO: rework
+        //                     '\u{feff}' | '\u{fffe}' => (),
+        //                     _ => {
+        //                         screen.move_to(x, y);
+        //                         screen.set_color(fg);
+        //                         screen.draw_char(c);
+        //                         x += adv;
+        //                         current_col += 1;
+        //                     }
+        //                 }
+        //                 idx += 1;
+        //             }
+        //         }
+        //         y += line_spacing;
+        //         x = 0;
+        //         current_col = 0;
+        //     }
+        // }
+        // //});
 
         // Cursor
         let fg = theme.settings.caret.unwrap_or(highlighting::Color::WHITE);
@@ -706,21 +857,28 @@ mod tests {
     use buffer::Buffer;
     use std::cell::RefCell;
     use std::rc::Rc;
+    use styling::*;
     use view::View;
     use window::Geometry;
 
-    const GEO: Geometry = Geometry{x:0,y:0,w:0,h:0,font_advance:1,font_height:0};
-
+    const GEO: Geometry = Geometry {
+        x: 0,
+        y: 0,
+        w: 0,
+        h: 0,
+        font_advance: 1,
+        font_height: 0,
+    };
 
     #[test]
     fn new_view() {
         let b = Rc::new(RefCell::new(Buffer::new()));
-        let v = View::new(b,GEO);
+        let v = View::new(b, GEO);
     }
     #[test]
     fn insert() {
         let b = Rc::new(RefCell::new(Buffer::from_str("text")));
-        let mut v = View::new(b,GEO);
+        let mut v = View::new(b, GEO);
         v.insert_char('r');
         assert_eq!(v.to_string(), "rtext");
         v.insert_char('e');
@@ -734,8 +892,8 @@ mod tests {
     #[test]
     fn multiple_view() {
         let buf = Rc::new(RefCell::new(Buffer::from_str("text")));
-        let mut v1 = View::new(buf.clone(),GEO);
-        let mut v2 = View::new(buf.clone(),GEO);
+        let mut v1 = View::new(buf.clone(), GEO);
+        let mut v2 = View::new(buf.clone(), GEO);
         v1.insert_char('r');
         assert_eq!(v2.to_string(), "rtext");
         v2.insert_char('e');
@@ -746,7 +904,7 @@ mod tests {
     #[should_panic]
     fn set_index_oob() {
         let b = Rc::new(RefCell::new(Buffer::from_str("text")));
-        let mut v = View::new(b,GEO);
+        let mut v = View::new(b, GEO);
         v.set_index(5);
     }
 
@@ -755,7 +913,7 @@ mod tests {
         let b = Rc::new(RefCell::new(Buffer::from_str(
             "text\nhello\nme!\nan other very long line",
         )));
-        let mut v = View::new(b,GEO);
+        let mut v = View::new(b, GEO);
         v.set_index(11);
         v.cursor_up();
         assert_eq!(v.index(), 5);
@@ -778,7 +936,7 @@ mod tests {
         let b = Rc::new(RefCell::new(Buffer::from_str(
             "a long text line\nhello\nme!\nan other very long line",
         )));
-        let mut v = View::new(b,GEO);
+        let mut v = View::new(b, GEO);
         v.cursor_down();
         assert_eq!(v.index(), 17);
         v.cursor_down();
@@ -801,7 +959,7 @@ mod tests {
     #[test]
     fn cursor_left() {
         let b = Rc::new(RefCell::new(Buffer::from_str("text\nhello\n")));
-        let mut v = View::new(b,GEO);
+        let mut v = View::new(b, GEO);
         v.cursor_left();
         assert_eq!(v.index(), 0);
 
@@ -820,7 +978,7 @@ mod tests {
     #[test]
     fn cursor_right() {
         let b = Rc::new(RefCell::new(Buffer::from_str("tt\nh\n")));
-        let mut v = View::new(b,GEO);
+        let mut v = View::new(b, GEO);
         v.cursor_right();
         assert_eq!(v.index(), 1);
         v.cursor_right();
@@ -837,7 +995,7 @@ mod tests {
     #[test]
     fn backspace() {
         let b = Rc::new(RefCell::new(Buffer::from_str("hello")));
-        let mut v = View::new(b,GEO);
+        let mut v = View::new(b, GEO);
         v.backspace();
         assert_eq!(v.to_string(), "hello");
         v.set_index(2);
@@ -847,7 +1005,7 @@ mod tests {
     #[test]
     fn delete_at_cursor() {
         let b = Rc::new(RefCell::new(Buffer::from_str("hello")));
-        let mut v = View::new(b,GEO);
+        let mut v = View::new(b, GEO);
         v.delete_at_cursor();
         assert_eq!(v.to_string(), "ello");
         v.set_index(3);

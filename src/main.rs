@@ -21,6 +21,7 @@ mod fontcache;
 mod keybinding;
 mod view;
 mod window;
+mod styling;
 
 use config::Config;
 use std::env;
@@ -52,9 +53,6 @@ lazy_static! {
 
         conf
     });
-}
-thread_local! {
-    pub static SYNTAXSET: SyntaxSet = SyntaxSet::load_defaults_nonewlines();
 }
 
 fn main() {

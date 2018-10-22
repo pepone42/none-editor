@@ -29,8 +29,8 @@ pub struct Geometry {
     pub font_advance: u32,
 }
 
-pub struct EditorWindow {
-    views: Vec<View>,
+pub struct EditorWindow<'v> {
+    views: Vec<View<'v>>,
     buffers: Vec<Rc<RefCell<Buffer>>>,
     geometry: Geometry,
     current_view: usize,
@@ -47,7 +47,7 @@ pub trait WindowCmd {
 
 const FONT_SIZE: u16 = 13;
 
-impl EditorWindow {
+impl<'v> EditorWindow<'v> {
     pub fn new<P: AsRef<Path>>(geometry: Geometry, file: Option<P>) -> Self {
         assert_eq!(geometry.x,0);
         assert_eq!(geometry.y,0);        
@@ -71,7 +71,7 @@ impl EditorWindow {
     pub fn get_current_view(&self) -> &View {
         &self.views[self.current_view]
     }
-    pub fn get_current_view_mut(&mut self) -> &mut View {
+    pub fn get_current_view_mut(&mut self) -> &'v mut View {
         &mut self.views[self.current_view]
     }
 
