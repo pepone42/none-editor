@@ -43,14 +43,12 @@ pub trait WindowCmd {
     fn run(&mut self, &mut EditorWindow);
 }
 
-
-
 const FONT_SIZE: u16 = 13;
 
 impl<'v> EditorWindow<'v> {
     pub fn new<P: AsRef<Path>>(geometry: Geometry, file: Option<P>) -> Self {
-        assert_eq!(geometry.x,0);
-        assert_eq!(geometry.y,0);        
+        assert_eq!(geometry.x, 0);
+        assert_eq!(geometry.y, 0);
         let mut w = EditorWindow::init(geometry);
         w.add_new_view(file);
         w
@@ -58,8 +56,8 @@ impl<'v> EditorWindow<'v> {
     fn init(geometry: Geometry) -> Self {
         let views = Vec::new();
         let buffers = Vec::new();
-        assert_eq!(geometry.x,0);
-        assert_eq!(geometry.y,0);
+        assert_eq!(geometry.x, 0);
+        assert_eq!(geometry.y, 0);
         EditorWindow {
             views,
             buffers,
@@ -83,10 +81,9 @@ impl<'v> EditorWindow<'v> {
         self.buffers.push(b.clone());
         let mut geometry = self.geometry;
         geometry.h -= 15; // footer TODO calculate it
-        let mut v = View::new(b.clone(),geometry);
+        let mut v = View::new(b.clone(), geometry);
         v.detect_syntax();
 
-        //v.set_page_length(self.height / self.font_height - 1);
         let viewid = self.views.len();
         self.views.push(v);
         self.current_view = viewid;
@@ -153,8 +150,18 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
 
     // create window. TODO: passing font_height as parameter feel off
     let font_height = screen.get_font_metrics("mono").line_spacing;
-    let font_advance = screen.find_glyph_metrics("mono",' ').unwrap().advance;
-    let mut win = EditorWindow::new(Geometry{x:0,y:0,w:width as _,h:height as _,font_height: font_height as u32,font_advance: font_advance as u32}, file);
+    let font_advance = screen.find_glyph_metrics("mono", ' ').unwrap().advance;
+    let mut win = EditorWindow::new(
+        Geometry {
+            x: 0,
+            y: 0,
+            w: width as _,
+            h: height as _,
+            font_height: font_height as u32,
+            font_advance: font_advance as u32,
+        },
+        file,
+    );
 
     // create view and windows cmd binding
     let mut view_cmd = commands::view::get_all();

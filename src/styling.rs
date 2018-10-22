@@ -67,8 +67,7 @@ impl<'a> StylingCache<'a> {
     pub fn new(syntax: &'a SyntaxReference) -> StylingCache<'a> {
         StylingCache {
             syntax,
-            // highlighter: highlighter,
-            state: Vec::new(), //vec!{(ParseState::new(syntax),hstate)}
+            state: Vec::new(),
             result: Vec::new(),
         }
     }
@@ -78,7 +77,7 @@ impl<'a> StylingCache<'a> {
         let length = r.end - start;
         self.state.truncate(start);
         self.result.truncate(start);
-        for line in b.lines().skip(start).take(length+1) {
+        for line in b.lines().skip(start).take(length + 1) {
             let highlighter = Highlighter::new(STYLE.theme);
             let mut state = self
                 .state
@@ -87,10 +86,10 @@ impl<'a> StylingCache<'a> {
                     ParseState::new(self.syntax),
                     HighlightState::new(&highlighter, ScopeStack::new()),
                 )).clone();
-            //let mut highlight_state = self.state.last().unwrap().1.clone();
+
             let l = line.to_string();
             let v = state.0.parse_line(&l, &SYNTAXSET);
-            //let iter : Vec<(Style, usize)> =
+
             self.result.push(
                 HighlightIterator::new(&mut state.1, &v[..], &l, &highlighter)
                     .map(|x| (x.0, x.1.chars().count()))
@@ -100,9 +99,9 @@ impl<'a> StylingCache<'a> {
         }
     }
     pub fn expand(&mut self, end: usize, b: &Buffer) {
-        let start= self.state.len();
-        if end>start {
-            self.update(start..end,b);
+        let start = self.state.len();
+        if end > start {
+            self.update(start..end, b);
         }
     }
 }

@@ -323,7 +323,6 @@ impl<'a> View<'a> {
             }
             b.insert(r.start, text);
         } // unborrow buffer
-          //self.cursor_right();
         self.set_index(r.start + text.chars().count());
         self.clear_selection();
         self.focus_on_cursor();
@@ -583,11 +582,7 @@ impl<'a> View<'a> {
         self.cursor.set(idx);
     }
 
-    // /// the first visible line in the view
-    // pub fn first_visible_line(&self) -> usize {
-    //     self.first_visible_line
-    // }
-
+    /// Detect the carriage return type of the buffer
     pub fn detect_linefeed(&mut self) {
         #[cfg(target_os = "windows")]
         let linefeed = LineFeed::CRLF;
@@ -670,16 +665,13 @@ impl<'a> View<'a> {
         let l = self.line_idx();
         if l < self.viewport.line_start {
             self.viewport.line_start = l;
-            //self.viewport.heigth = self.viewport.line_start + pagelen + 1;
         }
         if l > self.viewport.line_end() {
             self.viewport.line_start = l - pagelen;
-            //self.viewport.line_end = self.viewport.line_start + pagelen + 1;
         }
         {
             let b = self.buffer.borrow();
             self.viewport.line_start = min(self.viewport.line_start, b.len_lines());
-            //self.viewport.line_end = self.viewport.line_start + pagelen + 1;
         }
 
         let end = self.viewport.line_end();
@@ -696,7 +688,6 @@ impl<'a> View<'a> {
         let tabsize: i32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
 
         let first_visible_line = self.viewport.line_start;
-        //let last_visible_line = self.viewport.line_end();
         let page_len = self.viewport.heigth;
 
         let mut current_col = 0;
@@ -704,24 +695,12 @@ impl<'a> View<'a> {
         screen.set_font("mono");
 
         let mut line_index = first_visible_line;
-        for line in self
-            .buffer
-            .borrow()
-            .lines()
-            .skip(first_visible_line)
-            .take(page_len+1)
-        {
-            //let styling = &self.styling;
-            // let result = match &self.styling {
-            //     Some(s) => Some(s.result[line_index].clone()),
-            //     None => None
-            // };
+        for line in self.buffer.borrow().lines().skip(first_visible_line).take(page_len + 1) {
             let mut style = self
                 .styling
                 .as_ref()
                 .and_then(|s| s.result.get(line_index))
                 .map(|s| StyledLineIterator::new_for(s.to_vec()));
-            //let mut style = result.map(StyledLineIterator::new_for);
             let mut idx = self.buffer.borrow().line_to_char(line_index);
             for c in line.chars() {
                 let fg = match style.as_mut().and_then(|s| s.next()) {
@@ -763,59 +742,6 @@ impl<'a> View<'a> {
             x = 0;
             current_col = 0;
         }
-
-        // //SYNTAXSET.with(|s| {
-        // let synthax_definition = SYNTAXSET.find_syntax_by_name(&self.syntax).unwrap();
-
-        // let mut highlighter = HighlightLines::new(synthax_definition, theme);
-
-        // for (line_index, l) in self.buffer.borrow().lines().take(last_visible_line).enumerate() {
-        //     let line = l.to_string(); // TODO: optimize
-        //     let ranges: Vec<(Style, &str)> = highlighter.highlight(&line, &SYNTAXSET);
-
-        //     if line_index >= first_visible_line {
-        //         let mut idx = self.buffer.borrow().line_to_char(line_index);
-
-        //         for (style, text) in ranges {
-        //             let fg = Color::RGB(style.foreground.r, style.foreground.g, style.foreground.b);
-        //             for c in text.chars() {
-        //                 match self.selection {
-        //                     Some(sel) if sel.contains(idx) => {
-        //                         let color = theme.settings.selection.unwrap_or(highlighting::Color::WHITE);
-        //                         screen.set_color(Color::RGB(color.r, color.g, color.b));
-        //                         screen.move_to(x, y);
-        //                         screen.draw_rect(adv as _, line_spacing as _);
-        //                     }
-        //                     _ => (),
-        //                 }
-        //                 match c {
-        //                     '\t' => {
-        //                         let nbspace = ((current_col + tabsize) / tabsize) * tabsize;
-        //                         current_col = nbspace;
-        //                         x = adv * nbspace;
-        //                     }
-        //                     '\0' => (),
-        //                     '\r' => (), //idx -= 1,
-        //                     '\n' => (),
-        //                     // Bom hiding. TODO: rework
-        //                     '\u{feff}' | '\u{fffe}' => (),
-        //                     _ => {
-        //                         screen.move_to(x, y);
-        //                         screen.set_color(fg);
-        //                         screen.draw_char(c);
-        //                         x += adv;
-        //                         current_col += 1;
-        //                     }
-        //                 }
-        //                 idx += 1;
-        //             }
-        //         }
-        //         y += line_spacing;
-        //         x = 0;
-        //         current_col = 0;
-        //     }
-        // }
-        // //});
 
         // Cursor
         let fg = theme.settings.caret.unwrap_or(highlighting::Color::WHITE);
