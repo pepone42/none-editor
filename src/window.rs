@@ -19,6 +19,8 @@ use keybinding;
 use keybinding::KeyBinding;
 use view::View;
 
+use styling::STYLE;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Geometry {
     pub x: i32,
@@ -98,12 +100,12 @@ impl<'v> EditorWindow<'v> {
             self.views[i].relayout(geometry);
         }
     }
-    fn draw(&mut self, screen: &mut canvas::Screen, theme: &Theme) {
+    fn draw(&mut self, screen: &mut canvas::Screen) {
         screen.set_font("gui");
 
         let footer_height = screen.get_font_metrics("gui").line_spacing;
-        let fg = theme.settings.foreground.unwrap_or(highlighting::Color::BLACK);
-        let bg = theme.settings.background.unwrap_or(highlighting::Color::WHITE);
+        let fg = STYLE.theme.settings.foreground.unwrap_or(highlighting::Color::BLACK);
+        let bg = STYLE.theme.settings.background.unwrap_or(highlighting::Color::WHITE);
         screen.set_color(Color::RGB(fg.r, fg.g, fg.b));
         screen.move_to(0, self.geometry.h as i32 - footer_height);
         screen.draw_rect(self.geometry.w as _, footer_height as _);
@@ -118,7 +120,7 @@ impl<'v> EditorWindow<'v> {
             self.get_current_view().get_encoding()
         ));
 
-        self.get_current_view().draw(screen, theme);
+        self.get_current_view().draw(screen);
     }
 }
 
@@ -242,11 +244,10 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
         // redraw only when needed
         if redraw {
             // clear
-            let theme = &ts.themes["Solarized (dark)"];
-            let bg = theme.settings.background.unwrap_or(highlighting::Color::BLACK);
+            let bg = STYLE.theme.settings.background.unwrap_or(highlighting::Color::BLACK);
 
             screen.clear(Color::RGB(bg.r, bg.g, bg.b));
-            win.draw(&mut screen, theme);
+            win.draw(&mut screen);
             screen.render(&mut canvas);
         } else {
             thread::sleep(time::Duration::from_millis(10));

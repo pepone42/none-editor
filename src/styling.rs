@@ -11,7 +11,7 @@ lazy_static! {
 
 #[derive(Debug)]
 pub struct Styling<'a> {
-    theme: &'a Theme,
+    pub theme: &'a Theme,
 }
 
 impl<'a> Styling<'a> {

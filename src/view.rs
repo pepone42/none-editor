@@ -18,6 +18,7 @@ use keybinding::KeyBinding;
 use styling::StylingCache;
 use window::Geometry;
 use SETTINGS;
+use styling::STYLE;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Indentation {
@@ -679,7 +680,7 @@ impl<'a> View<'a> {
     }
 
     /// Draw the vew on the given screen
-    pub fn draw(&self, screen: &mut Screen, theme: &Theme) {
+    pub fn draw(&self, screen: &mut Screen) {
         let mut y = 0;
         let mut x = 0;
 
@@ -709,7 +710,7 @@ impl<'a> View<'a> {
                 };
                 match self.selection {
                     Some(sel) if sel.contains(idx) => {
-                        let color = theme.settings.selection.unwrap_or(highlighting::Color::WHITE);
+                        let color = STYLE.theme.settings.selection.unwrap_or(highlighting::Color::WHITE);
                         screen.set_color(Color::RGB(color.r, color.g, color.b));
                         screen.move_to(x, y);
                         screen.draw_rect(adv as _, line_spacing as _);
@@ -744,7 +745,7 @@ impl<'a> View<'a> {
         }
 
         // Cursor
-        let fg = theme.settings.caret.unwrap_or(highlighting::Color::WHITE);
+        let fg = STYLE.theme.settings.caret.unwrap_or(highlighting::Color::WHITE);
         let (mut line, col) = self.cursor_as_point();
         line -= first_visible_line;
         screen.move_to(col as i32 * adv, line as i32 * line_spacing);
