@@ -16,9 +16,9 @@ use buffer::Buffer;
 use canvas::{Color, Screen};
 use keybinding::KeyBinding;
 use styling::StylingCache;
+use styling::STYLE;
 use window::Geometry;
 use SETTINGS;
-use styling::STYLE;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Indentation {
@@ -171,7 +171,7 @@ impl SubAssign<usize> for Cursor {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 struct Viewport {
     line_start: usize,
     heigth: usize,
@@ -200,12 +200,6 @@ pub struct View<'a> {
 impl<'a> View<'a> {
     /// Create a new View for the given buffer
     pub fn new(buffer: Rc<RefCell<Buffer>>, geometry: Geometry) -> Self {
-        let viewport = Viewport {
-            line_start: 0,
-            col_start: 0,
-            heigth: (geometry.h / geometry.font_height) as usize,
-            width: (geometry.w / geometry.font_advance) as usize,
-        };
         let mut v = View {
             buffer,
             cursor: Cursor::default(),
@@ -213,9 +207,10 @@ impl<'a> View<'a> {
             undo_stack: UndoStack::new(),
             linefeed: LineFeed::LF,
             geometry,
-            viewport,
+            viewport: Viewport::default(),
             styling: None,
         };
+        v.relayout(geometry);
         v.detect_linefeed();
         v
     }
@@ -275,18 +270,24 @@ impl<'a> View<'a> {
 
     /// detect language from extension
     pub fn detect_syntax(&mut self) {
-        let b = self.buffer.borrow();
+        {
+            let b = self.buffer.borrow();
 
-        let plain_text = SYNTAXSET.find_syntax_plain_text();
-        let syntax = match self.get_extension() {
-            None => plain_text,
-            Some(ext) => SYNTAXSET.find_syntax_by_extension(&ext).unwrap_or(plain_text),
-        };
-        if let Some(ref mut style) = self.styling {
-            style.syntax = syntax;
-        } else {
+            let plain_text = SYNTAXSET.find_syntax_plain_text();
+            let syntax = match self.get_extension() {
+                None => plain_text,
+                Some(ext) => SYNTAXSET.find_syntax_by_extension(&ext).unwrap_or(plain_text),
+            };
+            // if let Some(ref mut style) = self.styling {
+            //     style.syntax = syntax;
+            // } else {
+            //     self.styling = Some(StylingCache::new(syntax));
+            // }
             self.styling = Some(StylingCache::new(syntax));
         }
+
+        let end = self.buffer.borrow().len_lines();// self.viewport.line_end();
+        self.expand_styling(end);
     }
 
     /// get the current syntax
