@@ -184,6 +184,9 @@ impl Viewport {
     fn col_end(&self) -> usize {
         self.col_start + self.width
     }
+    fn contain(&self, line: usize, col: usize) -> bool {
+        line >= self.line_start && line <= self.line_end() && col >= self.col_start && col <= self.col_end()
+    }
 }
 
 #[derive(Debug)]
@@ -577,6 +580,24 @@ impl<'a> View<'a> {
         self.cursor.set(idx);
     }
 
+    pub fn move_me(&mut self, dir: Direction, amount: i32) {
+        for _ in 0..amount {
+            match dir {
+                Direction::Up => {
+                    if self.viewport.line_start > 0 {
+                        self.viewport.line_start -= 1;
+                    }
+                }
+                Direction::Down => {
+                    if self.viewport.line_start < self.buffer.borrow().len_lines() {
+                        self.viewport.line_start += 1;
+                    }
+                }
+                _ => (),
+            }
+        }
+    }
+
     /// Detect the carriage return type of the buffer
     pub fn detect_linefeed(&mut self) {
         #[cfg(target_os = "windows")]
@@ -750,11 +771,13 @@ impl<'a> View<'a> {
         // Cursor
         let fg = STYLE.theme.settings.caret.unwrap_or(highlighting::Color::WHITE);
         let (mut line, mut col) = self.cursor_as_point();
-        line -= first_visible_line;
-        col -= first_visible_col;
-        screen.move_to(col as i32 * adv, line as i32 * line_spacing);
-        screen.set_color(Color::RGB(fg.r, fg.g, fg.b));
-        screen.draw_rect(2, line_spacing as _);
+        if self.viewport.contain(line, col) {
+            line -= first_visible_line;
+            col -= first_visible_col;
+            screen.move_to(col as i32 * adv, line as i32 * line_spacing);
+            screen.set_color(Color::RGB(fg.r, fg.g, fg.b));
+            screen.draw_rect(2, line_spacing as _);
+        }
     }
 
     /// clear the current selection
