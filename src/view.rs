@@ -183,6 +183,9 @@ impl Viewport {
     fn line_end(&self) -> usize {
         self.line_start + self.heigth
     }
+    fn col_end(&self) -> usize {
+        self.col_start + self.width
+    }
 }
 
 #[derive(Debug)]
@@ -560,6 +563,7 @@ impl<'a> View<'a> {
         } else {
             self.clear_selection();
         }
+        self.focus_on_cursor();
     }
 
     /// put the cursor at the end of the line
@@ -571,6 +575,7 @@ impl<'a> View<'a> {
         } else {
             self.clear_selection();
         }
+        self.focus_on_cursor();
     }
 
     /// return the cursor position in number of chars from the begining of the buffer
@@ -663,7 +668,7 @@ impl<'a> View<'a> {
     /// move the view so that the cursor is visible
     pub fn focus_on_cursor(&mut self) {
         use std::cmp::min;
-        let pagelen = self.page_length();
+        let pagelen = self.viewport.heigth;
         let l = self.line_idx();
         if l < self.viewport.line_start {
             self.viewport.line_start = l;
@@ -674,6 +679,15 @@ impl<'a> View<'a> {
         {
             let b = self.buffer.borrow();
             self.viewport.line_start = min(self.viewport.line_start, b.len_lines());
+        }
+
+        let pagewidth = self.viewport.width;
+        let c = self.col_idx();
+        if c < self.viewport.col_start {
+            self.viewport.col_start = c;
+        }
+        if c > self.viewport.col_end() {
+            self.viewport.col_start = c - pagewidth;
         }
 
         let end = self.viewport.line_end();
@@ -690,6 +704,7 @@ impl<'a> View<'a> {
         let tabsize: i32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
 
         let first_visible_line = self.viewport.line_start;
+        let first_visible_col = self.viewport.col_start;
         let page_len = self.viewport.heigth;
 
         let mut current_col = 0;
@@ -704,7 +719,8 @@ impl<'a> View<'a> {
                 .and_then(|s| s.result.get(line_index))
                 .map(|s| s.iter() );
             let mut idx = self.buffer.borrow().line_to_char(line_index);
-            for c in line.chars() {
+
+            for c in line.chars().skip(first_visible_col) {
                 let fg = match style.as_mut().and_then(|s| s.next()) {
                     None => Color::RGB(255, 255, 255),
                     Some(s) => Color::RGB(s.foreground.r, s.foreground.g, s.foreground.b),
@@ -747,8 +763,9 @@ impl<'a> View<'a> {
 
         // Cursor
         let fg = STYLE.theme.settings.caret.unwrap_or(highlighting::Color::WHITE);
-        let (mut line, col) = self.cursor_as_point();
+        let (mut line, mut col) = self.cursor_as_point();
         line -= first_visible_line;
+        col -= first_visible_col;
         screen.move_to(col as i32 * adv, line as i32 * line_spacing);
         screen.set_color(Color::RGB(fg.r, fg.g, fg.b));
         screen.draw_rect(2, line_spacing as _);
