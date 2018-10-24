@@ -780,17 +780,16 @@ mod tests {
     use buffer::Buffer;
     use std::cell::RefCell;
     use std::rc::Rc;
-    use styling::*;
     use view::View;
     use window::Geometry;
 
     const GEO: Geometry = Geometry {
         x: 0,
         y: 0,
-        w: 0,
-        h: 0,
-        font_advance: 1,
-        font_height: 0,
+        w: 100,
+        h: 100,
+        font_advance: 10,
+        font_height: 10,
     };
 
     #[test]
