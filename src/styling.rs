@@ -1,5 +1,8 @@
 use buffer::Buffer;
+use std::iter::FromIterator;
+use std::ops::Deref;
 use std::ops::Range;
+use std::slice;
 use syntect::highlighting::{HighlightIterator, HighlightState, Highlighter, Style, Theme, ThemeSet};
 use syntect::parsing::{ParseState, ScopeStack, SyntaxReference, SyntaxSet};
 
@@ -22,35 +25,70 @@ impl<'a> Styling<'a> {
     }
 }
 
-type StyledLine = Vec<(Style, usize)>;
-
-pub struct StyledLineIterator {
-    index: usize,
-    style: StyledLine,
+#[derive(Debug, Clone, Copy)]
+pub struct StyleSpan {
+    style: Style,
+    len: usize,
 }
 
-impl StyledLineIterator {
-    pub fn new_for(style: StyledLine) -> Self {
-        StyledLineIterator { index: 1, style }
+#[derive(Debug)]
+pub struct StyledLine {
+    inner: Vec<StyleSpan>
+}
+
+impl StyledLine {
+    pub fn new() -> Self {
+        StyledLine { inner: Vec::new() }
+    }
+    pub fn iter(&self) -> StyledLineIterator {
+        let style_span = self.inner.get(0).cloned();
+        let mut style_iter = self.inner.iter();
+        style_iter.next();
+        StyledLineIterator {
+            index: 0,
+            style_span,
+            style_iter,
+        }
     }
 }
 
-impl Iterator for StyledLineIterator {
+impl Deref for StyledLine {
+    type Target = Vec<StyleSpan>;
+
+    fn deref(&self) -> &Vec<StyleSpan> {
+        &self.inner
+    }
+}
+
+impl FromIterator<StyleSpan> for StyledLine {
+    fn from_iter<I: IntoIterator<Item = StyleSpan>>(iterator: I) -> Self {
+        let mut v = StyledLine::new();
+        for i in iterator {
+            v.inner.push(i);
+        }
+        v
+    }
+}
+#[derive(Debug)]
+pub struct StyledLineIterator<'a> {
+    index: usize,
+    style_span: Option<StyleSpan>,
+    style_iter: slice::Iter<'a, StyleSpan>,
+}
+
+impl<'a> Iterator for StyledLineIterator<'a> {
     type Item = Style;
 
     fn next(&mut self) -> Option<Style> {
-        if self.style.is_empty() {
-            None
-        } else {
-            let style = self.style[0];
-            if self.index > style.1 {
-                self.index = 2;
-                self.style.remove(0);
-                self.style.first().map(|s| s.0)
-            } else {
-                self.index += 1;
-                Some(style.0)
+        if let Some(span) = self.style_span {
+            self.index += 1;
+            if self.index > span.len {
+                self.index = 1;
+                self.style_span = self.style_iter.next().cloned();
             }
+            self.style_span.map(|s| s.style)
+        } else {
+            None
         }
     }
 }
@@ -89,12 +127,16 @@ impl<'a> StylingCache<'a> {
 
             let l = line.to_string();
             let v = state.0.parse_line(&l, &SYNTAXSET);
+            // let r = HighlightIterator::new(&mut state.1, &v[..], &l, &highlighter)
+            //         .map(|x| StyleSpan{style: x.0, len: x.1.chars().count()})
+            //         .collect();
+            let r = HighlightIterator::new(&mut state.1, &v[..], &l, &highlighter)
+                .map(|x| StyleSpan {
+                    style: x.0,
+                    len: x.1.chars().count(),
+                }).collect();
+            self.result.push(r);
 
-            self.result.push(
-                HighlightIterator::new(&mut state.1, &v[..], &l, &highlighter)
-                    .map(|x| (x.0, x.1.chars().count()))
-                    .collect(),
-            );
             self.state.push(state);
         }
     }

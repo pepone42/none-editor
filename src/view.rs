@@ -702,7 +702,7 @@ impl<'a> View<'a> {
                 .styling
                 .as_ref()
                 .and_then(|s| s.result.get(line_index))
-                .map(|s| StyledLineIterator::new_for(s.to_vec()));
+                .map(|s| s.iter() );
             let mut idx = self.buffer.borrow().line_to_char(line_index);
             for c in line.chars() {
                 let fg = match style.as_mut().and_then(|s| s.next()) {
