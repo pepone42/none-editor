@@ -287,14 +287,9 @@ pub mod view {
             &["Shift-PageDown"],
             |v| v.move_page(Direction::Down, true),
         ));
-        v.push(GenericViewCommand::new_box(
-            "Save",
-            "Save file",
-            &["Ctrl-S"],
-            |v| {
-                v.save();
-            },
-        ));        
+        v.push(GenericViewCommand::new_box("Save", "Save file", &["Ctrl-S"], |v| {
+            v.save();
+        }));
         v
     }
 }
@@ -303,7 +298,6 @@ pub mod window {
     use commands::*;
     use nfd;
     use window::WindowCmd;
-    use SETTINGS;
 
     pub fn get_all() -> Vec<Box<WindowCmd>> {
         let mut v = Vec::<Box<WindowCmd>>::new();

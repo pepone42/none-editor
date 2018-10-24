@@ -237,7 +237,7 @@ impl<'a> View<'a> {
     pub fn page_length(&self) -> usize {
         self.viewport.heigth
     }
-    
+
     /// resize the view and update the viewport accordingly
     pub fn relayout(&mut self, geometry: Geometry) {
         self.geometry = geometry;

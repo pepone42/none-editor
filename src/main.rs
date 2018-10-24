@@ -7,21 +7,21 @@ extern crate sdl2;
 extern crate lazy_static;
 #[macro_use]
 extern crate bitflags;
+extern crate chardet;
 extern crate config;
 extern crate directories;
-extern crate syntect;
-extern crate nfd;
-extern crate chardet;
 extern crate encoding;
+extern crate nfd;
+extern crate syntect;
 
 mod buffer;
 mod canvas;
 mod commands;
 mod fontcache;
 mod keybinding;
+mod styling;
 mod view;
 mod window;
-mod styling;
 
 use config::Config;
 use std::env;
@@ -29,7 +29,6 @@ use std::fs;
 use std::io::Read;
 use std::path::PathBuf;
 use std::sync::RwLock;
-use syntect::parsing::SyntaxSet;
 
 use directories::ProjectDirs;
 

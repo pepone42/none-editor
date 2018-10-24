@@ -33,7 +33,7 @@ pub struct StyleSpan {
 
 #[derive(Debug)]
 pub struct StyledLine {
-    inner: Vec<StyleSpan>
+    inner: Vec<StyleSpan>,
 }
 
 impl StyledLine {

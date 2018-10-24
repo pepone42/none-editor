@@ -98,7 +98,11 @@ impl Buffer {
     pub fn save(&mut self) -> io::Result<()> {
         if let Some(filename) = &self.filename {
             if let Ok(r) = self.encoding.encode(&self.rope.to_string(), EncoderTrap::Replace) {
-                let mut file = OpenOptions::new().create(true).write(true).truncate(true).open(filename)?;
+                let mut file = OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .truncate(true)
+                    .open(filename)?;
                 file.write_all(&r)?;
                 Ok(())
             } else {
@@ -110,7 +114,7 @@ impl Buffer {
     }
 
     /// save the current buffer to disk with the given filename
-    pub fn save_as<P: AsRef<Path>>(&mut self,filename: P) -> io::Result<()> {
+    pub fn save_as<P: AsRef<Path>>(&mut self, filename: P) -> io::Result<()> {
         self.set_filename(filename.as_ref());
         self.save()?;
         Ok(())

@@ -10,7 +10,6 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 
 use syntect::highlighting;
-use syntect::highlighting::{Theme, ThemeSet};
 
 use buffer::Buffer;
 use canvas;
@@ -180,9 +179,6 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
             win_cmd_keybinding.insert(kb, i);
         }
     }
-
-    // Theme
-    let ts = ThemeSet::load_defaults();
 
     // main loop
     let mut event_pump = sdl_context.event_pump().unwrap();
