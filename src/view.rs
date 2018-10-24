@@ -5,12 +5,10 @@ use std::ops::AddAssign;
 use std::ops::Range;
 use std::ops::SubAssign;
 use std::rc::Rc;
-use styling::StyledLineIterator;
 
 use styling::SYNTAXSET;
 
 use syntect::highlighting;
-use syntect::highlighting::Theme;
 
 use buffer::Buffer;
 use canvas::{Color, Screen};
@@ -239,7 +237,7 @@ impl<'a> View<'a> {
     pub fn page_length(&self) -> usize {
         self.viewport.heigth
     }
-
+    
     /// resize the view and update the viewport accordingly
     pub fn relayout(&mut self, geometry: Geometry) {
         self.geometry = geometry;
@@ -273,23 +271,13 @@ impl<'a> View<'a> {
 
     /// detect language from extension
     pub fn detect_syntax(&mut self) {
-        {
-            let b = self.buffer.borrow();
-
-            let plain_text = SYNTAXSET.find_syntax_plain_text();
-            let syntax = match self.get_extension() {
-                None => plain_text,
-                Some(ext) => SYNTAXSET.find_syntax_by_extension(&ext).unwrap_or(plain_text),
-            };
-            // if let Some(ref mut style) = self.styling {
-            //     style.syntax = syntax;
-            // } else {
-            //     self.styling = Some(StylingCache::new(syntax));
-            // }
-            self.styling = Some(StylingCache::new(syntax));
-        }
-
-        let end = self.buffer.borrow().len_lines();// self.viewport.line_end();
+        let plain_text = SYNTAXSET.find_syntax_plain_text();
+        let syntax = match self.get_extension() {
+            None => plain_text,
+            Some(ext) => SYNTAXSET.find_syntax_by_extension(&ext).unwrap_or(plain_text),
+        };
+        self.styling = Some(StylingCache::new(syntax));
+        let end = self.buffer.borrow().len_lines(); // self.viewport.line_end();
         self.expand_styling(end);
     }
 
@@ -697,7 +685,6 @@ impl<'a> View<'a> {
     /// Draw the vew on the given screen
     pub fn draw(&self, screen: &mut Screen) {
         let mut y = 0;
-        let mut x = 0;
 
         let adv = self.geometry.font_advance as i32;
         let line_spacing = self.geometry.font_height as i32;
@@ -717,10 +704,12 @@ impl<'a> View<'a> {
                 .styling
                 .as_ref()
                 .and_then(|s| s.result.get(line_index))
-                .map(|s| s.iter() );
+                .map(|s| s.iter());
             let mut idx = self.buffer.borrow().line_to_char(line_index);
 
-            for c in line.chars().skip(first_visible_col) {
+            for c in line.chars() {
+                let x = (current_col - first_visible_col as i32) * adv;
+
                 let fg = match style.as_mut().and_then(|s| s.next()) {
                     None => Color::RGB(255, 255, 255),
                     Some(s) => Color::RGB(s.foreground.r, s.foreground.g, s.foreground.b),
@@ -738,7 +727,6 @@ impl<'a> View<'a> {
                     '\t' => {
                         let nbspace = ((current_col + tabsize) / tabsize) * tabsize;
                         current_col = nbspace;
-                        x = adv * nbspace;
                     }
                     '\0' => (),
                     '\r' => (), //idx -= 1,
@@ -749,7 +737,6 @@ impl<'a> View<'a> {
                         screen.move_to(x, y);
                         screen.set_color(fg);
                         screen.draw_char(c);
-                        x += adv;
                         current_col += 1;
                     }
                 }
@@ -757,7 +744,6 @@ impl<'a> View<'a> {
             }
             line_index += 1;
             y += line_spacing;
-            x = 0;
             current_col = 0;
         }
 
