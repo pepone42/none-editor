@@ -16,7 +16,7 @@ use canvas;
 use commands;
 use keybinding;
 use keybinding::KeyBinding;
-use view::{View,Direction};
+use view::{Direction, View};
 
 use styling::STYLE;
 
@@ -229,15 +229,23 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
                     height = h as _;
                     win.resize(width as _, height as _);
                 }
-                Event::MouseWheel {direction, mut y, ..} => {
+                Event::MouseWheel { direction, mut y, .. } => {
                     if direction == sdl2::mouse::MouseWheelDirection::Normal {
                         y *= -1;
                     }
-                    if y>0 {
-                        win.views[win.current_view].move_me(Direction::Down,y*3)
+                    if y > 0 {
+                        win.views[win.current_view].move_me(Direction::Down, y * 3)
                     } else {
-                        win.views[win.current_view].move_me(Direction::Up,-y*3)
+                        win.views[win.current_view].move_me(Direction::Up, -y * 3)
                     }
+                }
+                Event::MouseButtonDown {
+                    mouse_btn: sdl2::mouse::MouseButton::Left,
+                    x,
+                    y,
+                    ..
+                } => {
+                    win.views[win.current_view].click(x, y);
                 }
                 Event::TextInput { text: t, .. } => {
                     t.chars().for_each(|c| win.views[win.current_view].insert_char(c));

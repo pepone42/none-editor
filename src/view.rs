@@ -580,6 +580,14 @@ impl<'a> View<'a> {
         self.cursor.set(idx);
     }
 
+    pub fn click(&mut self, x: i32, y: i32) {
+        let col = x / self.geometry.font_advance as i32 + self.viewport.col_start as i32;
+        let line = y / self.geometry.font_height as i32 + self.viewport.line_start as i32;
+
+        let idx = self.buffer.borrow().point_to_index((line as _,col as _));
+        self.set_index(idx);
+    }
+
     pub fn move_me(&mut self, dir: Direction, amount: i32) {
         for _ in 0..amount {
             match dir {
