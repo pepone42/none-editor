@@ -229,8 +229,8 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
                     height = h as _;
                     win.resize(width as _, height as _);
                 }
-                Event::MouseWheel {direction: d, mut y, ..} => {
-                    if d == sdl2::mouse::MouseWheelDirection::Normal {
+                Event::MouseWheel {direction, mut y, ..} => {
+                    if direction == sdl2::mouse::MouseWheelDirection::Normal {
                         y *= -1;
                     }
                     if y>0 {
