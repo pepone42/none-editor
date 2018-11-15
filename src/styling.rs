@@ -1,4 +1,4 @@
-use buffer::Buffer;
+use crate::buffer::Buffer;
 use std::iter::FromIterator;
 use std::ops::Deref;
 use std::ops::Range;

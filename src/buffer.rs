@@ -205,7 +205,7 @@ impl Buffer {
 
 #[cfg(test)]
 mod tests {
-    use buffer::Buffer;
+    use crate::buffer::Buffer;
 
     #[test]
     fn chars_iterators() {

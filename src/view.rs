@@ -6,17 +6,17 @@ use std::ops::Range;
 use std::ops::SubAssign;
 use std::rc::Rc;
 
-use styling::SYNTAXSET;
+use crate::styling::SYNTAXSET;
 
 use syntect::highlighting;
 
-use buffer::Buffer;
-use canvas::{Color, Screen};
-use keybinding::KeyBinding;
-use styling::StylingCache;
-use styling::STYLE;
-use window::Geometry;
-use SETTINGS;
+use crate::buffer::Buffer;
+use crate::canvas::{Color, Screen};
+use crate::keybinding::KeyBinding;
+use crate::styling::StylingCache;
+use crate::styling::STYLE;
+use crate::window::Geometry;
+use crate::SETTINGS;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Indentation {
@@ -651,7 +651,7 @@ impl<'a> View<'a> {
         let b = self.buffer.borrow();
         let mut tab = 0;
         let mut spaces = Vec::<u32>::new();
-        let tab_width = 0;
+        let _tab_width = 0;
         let mut contigus_space = 0;
 
         fn gcd(a: u32, b: u32) -> u32 {
@@ -806,16 +806,16 @@ pub trait ViewCmd {
     fn name(&self) -> &'static str;
     fn desc(&self) -> &'static str;
     fn keybinding(&self) -> Vec<KeyBinding>;
-    fn run(&mut self, &mut View);
+    fn run(&mut self, _: &mut View);
 }
 
 #[cfg(test)]
 mod tests {
-    use buffer::Buffer;
+    use crate::buffer::Buffer;
     use std::cell::RefCell;
     use std::rc::Rc;
-    use view::View;
-    use window::Geometry;
+    use crate::view::View;
+    use crate::window::Geometry;
 
     const GEO: Geometry = Geometry {
         x: 0,
@@ -829,7 +829,7 @@ mod tests {
     #[test]
     fn new_view() {
         let b = Rc::new(RefCell::new(Buffer::new()));
-        let v = View::new(b, GEO);
+        let _v = View::new(b, GEO);
     }
     #[test]
     fn insert() {

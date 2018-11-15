@@ -11,14 +11,14 @@ use sdl2::pixels::Color;
 
 use syntect::highlighting;
 
-use buffer::Buffer;
-use canvas;
-use commands;
-use keybinding;
-use keybinding::KeyBinding;
-use view::{Direction, View};
+use crate::buffer::Buffer;
+use crate::canvas;
+use crate::commands;
+use crate::keybinding;
+use crate::keybinding::KeyBinding;
+use crate::view::{Direction, View};
 
-use styling::STYLE;
+use crate::styling::STYLE;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Geometry {
@@ -41,7 +41,7 @@ pub trait WindowCmd {
     fn name(&self) -> &'static str;
     fn desc(&self) -> &'static str;
     fn keybinding(&self) -> Vec<KeyBinding>;
-    fn run(&mut self, &mut EditorWindow);
+    fn run(&mut self, _: &mut EditorWindow);
 }
 
 const FONT_SIZE: u16 = 13;

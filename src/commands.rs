@@ -1,8 +1,8 @@
 use clipboard2::*;
-use keybinding::KeyBinding;
-use view::{Direction, View, ViewCmd};
-use window::EditorWindow;
-use window::WindowCmd;
+use crate::keybinding::KeyBinding;
+use crate::view::{Direction, View, ViewCmd};
+use crate::window::EditorWindow;
+use crate::window::WindowCmd;
 
 struct GenericViewCommand {
     name: &'static str,
@@ -109,9 +109,9 @@ lazy_static! {
 }
 
 pub mod view {
-    use commands::*;
-    use view::ViewCmd;
-    use SETTINGS;
+    use crate::commands::*;
+    use crate::view::ViewCmd;
+    use crate::SETTINGS;
 
     pub fn get_all() -> Vec<Box<ViewCmd>> {
         let mut v = Vec::<Box<ViewCmd>>::new();
@@ -295,9 +295,9 @@ pub mod view {
 }
 
 pub mod window {
-    use commands::*;
+    use crate::commands::*;
     use nfd;
-    use window::WindowCmd;
+    use crate::window::WindowCmd;
 
     pub fn get_all() -> Vec<Box<WindowCmd>> {
         let mut v = Vec::<Box<WindowCmd>>::new();
