@@ -11,14 +11,14 @@ use sdl2::pixels::Color;
 
 use syntect::highlighting;
 
-use buffer::Buffer;
-use canvas;
-use commands;
-use keybinding;
-use keybinding::KeyBinding;
-use view::{Direction, View};
+use crate::buffer::Buffer;
+use crate::canvas;
+use crate::commands;
+use crate::keybinding;
+use crate::keybinding::KeyBinding;
+use crate::view::{Direction, View};
 
-use styling::STYLE;
+use crate::styling::STYLE;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Geometry {
@@ -41,7 +41,7 @@ pub trait WindowCmd {
     fn name(&self) -> &'static str;
     fn desc(&self) -> &'static str;
     fn keybinding(&self) -> Vec<KeyBinding>;
-    fn run(&mut self, &mut EditorWindow);
+    fn run(&mut self, _: &mut EditorWindow<'_>);
 }
 
 const FONT_SIZE: u16 = 13;
@@ -67,10 +67,10 @@ impl<'v> EditorWindow<'v> {
         }
     }
 
-    pub fn get_current_view(&self) -> &View {
+    pub fn get_current_view(&self) -> &View<'_> {
         &self.views[self.current_view]
     }
-    pub fn get_current_view_mut(&mut self) -> &'v mut View {
+    pub fn get_current_view_mut(&mut self) -> &'v mut View<'_> {
         &mut self.views[self.current_view]
     }
 
@@ -99,7 +99,7 @@ impl<'v> EditorWindow<'v> {
             self.views[i].relayout(geometry);
         }
     }
-    fn draw(&mut self, screen: &mut canvas::Screen) {
+    fn draw(&mut self, screen: &mut canvas::Screen<'_, '_, '_>) {
         screen.set_font("gui");
 
         let footer_height = screen.get_font_metrics("gui").line_spacing;

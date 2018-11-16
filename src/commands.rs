@@ -1,18 +1,19 @@
+use lazy_static::lazy_static;
 use clipboard2::*;
-use keybinding::KeyBinding;
-use view::{Direction, View, ViewCmd};
-use window::EditorWindow;
-use window::WindowCmd;
+use crate::keybinding::KeyBinding;
+use crate::view::{Direction, View, ViewCmd};
+use crate::window::EditorWindow;
+use crate::window::WindowCmd;
 
 struct GenericViewCommand {
     name: &'static str,
     desc: &'static str,
     keybinding: Vec<KeyBinding>,
-    execute: fn(&mut View),
+    execute: fn(&mut View<'_>),
 }
 
 impl GenericViewCommand {
-    pub fn new(name: &'static str, desc: &'static str, keybinding: Vec<KeyBinding>, execute: fn(&mut View)) -> Self {
+    pub fn new(name: &'static str, desc: &'static str, keybinding: Vec<KeyBinding>, execute: fn(&mut View<'_>)) -> Self {
         GenericViewCommand {
             name,
             desc,
@@ -20,7 +21,7 @@ impl GenericViewCommand {
             execute,
         }
     }
-    pub fn new_box<K>(name: &'static str, desc: &'static str, keybinding: &[K], execute: fn(&mut View)) -> Box<Self>
+    pub fn new_box<K>(name: &'static str, desc: &'static str, keybinding: &[K], execute: fn(&mut View<'_>)) -> Box<Self>
     where
         K: Clone,
         KeyBinding: From<K>,
@@ -28,7 +29,7 @@ impl GenericViewCommand {
         Box::new(GenericViewCommand::new(
             name,
             desc,
-            keybinding.into_iter().cloned().map(From::from).collect(),
+            keybinding.iter().cloned().map(From::from).collect(),
             execute,
         ))
     }
@@ -44,7 +45,7 @@ impl ViewCmd for GenericViewCommand {
     fn keybinding(&self) -> Vec<KeyBinding> {
         self.keybinding.clone()
     }
-    fn run(&mut self, view: &mut View) {
+    fn run(&mut self, view: &mut View<'_>) {
         (self.execute)(view);
     }
 }
@@ -53,7 +54,7 @@ struct GenericWindowCommand {
     name: &'static str,
     desc: &'static str,
     keybinding: Vec<KeyBinding>,
-    execute: fn(&mut EditorWindow),
+    execute: fn(&mut EditorWindow<'_>),
 }
 
 impl GenericWindowCommand {
@@ -61,7 +62,7 @@ impl GenericWindowCommand {
         name: &'static str,
         desc: &'static str,
         keybinding: Vec<KeyBinding>,
-        execute: fn(&mut EditorWindow),
+        execute: fn(&mut EditorWindow<'_>),
     ) -> Self {
         GenericWindowCommand {
             name,
@@ -74,7 +75,7 @@ impl GenericWindowCommand {
         name: &'static str,
         desc: &'static str,
         keybinding: &[K],
-        execute: fn(&mut EditorWindow),
+        execute: fn(&mut EditorWindow<'_>),
     ) -> Box<Self>
     where
         K: Clone,
@@ -83,7 +84,7 @@ impl GenericWindowCommand {
         Box::new(GenericWindowCommand::new(
             name,
             desc,
-            keybinding.into_iter().cloned().map(From::from).collect(),
+            keybinding.iter().cloned().map(From::from).collect(),
             execute,
         ))
     }
@@ -99,7 +100,7 @@ impl WindowCmd for GenericWindowCommand {
     fn keybinding(&self) -> Vec<KeyBinding> {
         self.keybinding.clone()
     }
-    fn run(&mut self, window: &mut EditorWindow) {
+    fn run(&mut self, window: &mut EditorWindow<'_>) {
         (self.execute)(window);
     }
 }
@@ -109,12 +110,12 @@ lazy_static! {
 }
 
 pub mod view {
-    use commands::*;
-    use view::ViewCmd;
-    use SETTINGS;
+    use crate::commands::*;
+    use crate::view::ViewCmd;
+    use crate::SETTINGS;
 
-    pub fn get_all() -> Vec<Box<ViewCmd>> {
-        let mut v = Vec::<Box<ViewCmd>>::new();
+    pub fn get_all() -> Vec<Box<dyn ViewCmd>> {
+        let mut v = Vec::<Box<dyn ViewCmd>>::new();
         v.push(GenericViewCommand::new_box(
             "Cut",
             "Cut the current selection to clipboard",
@@ -295,12 +296,12 @@ pub mod view {
 }
 
 pub mod window {
-    use commands::*;
+    use crate::commands::*;
     use nfd;
-    use window::WindowCmd;
+    use crate::window::WindowCmd;
 
-    pub fn get_all() -> Vec<Box<WindowCmd>> {
-        let mut v = Vec::<Box<WindowCmd>>::new();
+    pub fn get_all() -> Vec<Box<dyn WindowCmd>> {
+        let mut v = Vec::<Box<dyn WindowCmd>>::new();
         v.push(GenericWindowCommand::new_box(
             "Open",
             "Open an existing file",

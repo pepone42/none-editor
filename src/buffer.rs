@@ -24,7 +24,7 @@ pub struct Buffer {
 }
 
 impl fmt::Debug for Buffer {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "Buffer {{rope: {:?}, filename: {:?}, is_dirty: {}, encoding: {} }}",
@@ -126,10 +126,10 @@ impl Buffer {
     }
 
     /// Iterate over each char in the buffer
-    pub fn chars(&self) -> ropey::iter::Chars {
+    pub fn chars(&self) -> ropey::iter::Chars<'_> {
         self.rope.chars()
     }
-    pub fn lines(&self) -> ropey::iter::Lines {
+    pub fn lines(&self) -> ropey::iter::Lines<'_> {
         self.rope.lines()
     }
     /// Total number of chars in the buffer
@@ -205,7 +205,7 @@ impl Buffer {
 
 #[cfg(test)]
 mod tests {
-    use buffer::Buffer;
+    use crate::buffer::Buffer;
 
     #[test]
     fn chars_iterators() {

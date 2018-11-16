@@ -8,7 +8,7 @@ use sdl2::ttf;
 use sdl2::video::WindowContext;
 use std::collections::HashMap;
 
-use fontcache::GlyphCache;
+use crate::fontcache::GlyphCache;
 
 pub type Color = sdl2::pixels::Color;
 

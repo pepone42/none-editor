@@ -1,6 +1,7 @@
 use std::convert::From;
 
 use sdl2::keyboard::Keycode;
+use bitflags::bitflags;
 
 //#[derive(PartialEq,Eq,Debug,Hash)]
 bitflags! {

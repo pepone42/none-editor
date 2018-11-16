@@ -49,7 +49,7 @@ impl<'t, 'ttf_context, 'rwops> GlyphCache<'t, 'ttf_context, 'rwops> {
         self.glyphs[&(c, color)]
     }
     // insert a new glyph in the cache
-    pub fn insert(&mut self, c: char, color: Color, src: &Surface) {
+    pub fn insert(&mut self, c: char, color: Color, src: &Surface<'_>) {
         // panic if there is no texture available
         assert!(!self.textures.is_empty());
         let last = self.textures.len() - 1;

@@ -6,17 +6,17 @@ use std::ops::Range;
 use std::ops::SubAssign;
 use std::rc::Rc;
 
-use styling::SYNTAXSET;
+use crate::styling::SYNTAXSET;
 
 use syntect::highlighting;
 
-use buffer::Buffer;
-use canvas::{Color, Screen};
-use keybinding::KeyBinding;
-use styling::StylingCache;
-use styling::STYLE;
-use window::Geometry;
-use SETTINGS;
+use crate::buffer::Buffer;
+use crate::canvas::{Color, Screen};
+use crate::keybinding::KeyBinding;
+use crate::styling::StylingCache;
+use crate::styling::STYLE;
+use crate::window::Geometry;
+use crate::SETTINGS;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Indentation {
@@ -247,7 +247,7 @@ impl<'a> View<'a> {
         self.viewport.heigth = (self.geometry.h / self.geometry.font_height) as usize - 1;
         self.viewport.width = (self.geometry.w / self.geometry.font_advance) as usize - 1;
         let end = self.viewport.line_end();
-        self.expand_styling(end);
+        self.expand_styling_cache(end);
     }
 
     fn get_state(&self) -> State {
@@ -281,7 +281,7 @@ impl<'a> View<'a> {
         };
         self.styling = Some(StylingCache::new(syntax));
         let end = self.buffer.borrow().len_lines(); // self.viewport.line_end();
-        self.expand_styling(end);
+        self.expand_styling_cache(end);
     }
 
     /// get the current syntax
@@ -297,12 +297,12 @@ impl<'a> View<'a> {
         self.buffer.borrow().get_encoding().name()
     }
 
-    fn update_styling(&mut self, r: Range<usize>) {
+    fn update_styling_cache(&mut self, r: Range<usize>) {
         if let Some(ref mut style) = self.styling {
             style.update(r, &self.buffer.borrow());
         }
     }
-    fn expand_styling(&mut self, end: usize) {
+    fn expand_styling_cache(&mut self, end: usize) {
         if let Some(ref mut style) = self.styling {
             style.expand(end, &self.buffer.borrow());
         }
@@ -311,40 +311,38 @@ impl<'a> View<'a> {
     pub fn edit(&mut self, r: Range<usize>, text: &str) {
         let start = self.line_idx();
         self.push_state();
-        {
-            let mut b = self.buffer.borrow_mut();
-            if r.start != r.end {
-                self.cursor.set(r.start);
-                b.remove(r.clone());
-            }
-            b.insert(r.start, text);
-        } // unborrow buffer
+
+        if r.start != r.end {
+            self.cursor.set(r.start);
+            self.buffer.borrow_mut().remove(r.clone());
+        }
+        self.buffer.borrow_mut().insert(r.start, text);
+
         self.set_index(r.start + text.chars().count());
         self.clear_selection();
         self.focus_on_cursor();
 
         let end = self.viewport.line_end();
-        self.update_styling(start..end);
+        self.update_styling_cache(start..end);
     }
 
     /// insert the given char at the cursor position
     pub fn insert_char(&mut self, ch: char) {
         let start = self.line_idx();
         self.push_state();
-        {
-            let mut b = self.buffer.borrow_mut();
-            if let Some(r) = self.selection {
-                self.cursor.set(r.lower());
-                b.remove(r);
-            }
-            b.insert_char(self.cursor.index, ch);
-        } // unborrow buffer
+
+        if let Some(r) = self.selection {
+            self.cursor.set(r.lower());
+            self.buffer.borrow_mut().remove(r);
+        }
+        self.buffer.borrow_mut().insert_char(self.cursor.index, ch);
+
         self.cursor_right();
         self.clear_selection();
         self.focus_on_cursor();
 
         let end = self.viewport.line_end();
-        self.update_styling(start..end);
+        self.update_styling_cache(start..end);
     }
 
     pub fn insert_linefeed(&mut self) {
@@ -359,20 +357,18 @@ impl<'a> View<'a> {
     pub fn insert(&mut self, text: &str) {
         let start = self.line_idx();
         self.push_state();
-        {
-            let mut b = self.buffer.borrow_mut();
-            if let Some(r) = self.selection {
-                self.cursor.set(r.lower());
-                b.remove(r);
-            }
-            b.insert(self.cursor.index, &text);
-        } // unborrow buffer
+
+        if let Some(r) = self.selection {
+            self.cursor.set(r.lower());
+            self.buffer.borrow_mut().remove(r);
+        }
+        self.buffer.borrow_mut().insert(self.cursor.index, &text);
         self.cursor += text.chars().count();
         self.clear_selection();
         self.focus_on_cursor();
 
         let end = self.viewport.line_end();
-        self.update_styling(start..end);
+        self.update_styling_cache(start..end);
     }
 
     /// delete the charater directly to the left of cursor
@@ -392,28 +388,26 @@ impl<'a> View<'a> {
         self.focus_on_cursor();
 
         let end = self.viewport.line_end();
-        self.update_styling(start..end);
+        self.update_styling_cache(start..end);
     }
 
     /// delete the charater under the cursor
     pub fn delete_at_cursor(&mut self) {
         let start = self.line_idx();
         self.push_state();
-        {
-            if let Some(r) = self.selection {
-                self.cursor.set(r.lower());
-                self.buffer.borrow_mut().remove(r);
-            } else if self.cursor.index < self.buffer.borrow().len_chars() {
-                let curs = self.cursor.index;
-                self.cursor_right();
-                self.buffer.borrow_mut().remove(self.cursor.previous..self.cursor.index);
-                self.cursor.set(curs);
-            }
+        if let Some(r) = self.selection {
+            self.cursor.set(r.lower());
+            self.buffer.borrow_mut().remove(r);
+        } else if self.cursor.index < self.buffer.borrow().len_chars() {
+            let curs = self.cursor.index;
+            self.cursor_right();
+            self.buffer.borrow_mut().remove(self.cursor.previous..self.cursor.index);
+            self.cursor.set(curs);
         }
         self.clear_selection();
         self.focus_on_cursor();
         let end = self.viewport.line_end();
-        self.update_styling(start..end);
+        self.update_styling_cache(start..end);
     }
 
     /// return a newly allocated string of the buffer
@@ -435,7 +429,7 @@ impl<'a> View<'a> {
         self.focus_on_cursor();
         let start = self.line_idx();
         let end = self.viewport.line_end();
-        self.update_styling(start..end);
+        self.update_styling_cache(start..end);
     }
 
     /// redo the last undo action
@@ -447,7 +441,7 @@ impl<'a> View<'a> {
         self.focus_on_cursor();
         let start = self.line_idx();
         let end = self.viewport.line_end();
-        self.update_styling(start..end);
+        self.update_styling_cache(start..end);
     }
 
     /// return the currently selection
@@ -460,22 +454,17 @@ impl<'a> View<'a> {
 
     /// return the cursor position in line
     pub fn line_idx(&self) -> usize {
-        let b = self.buffer.borrow();
-        let (l, _) = b.index_to_point(self.cursor.index);
-        l
+        self.buffer.borrow().index_to_point(self.cursor.index).0
     }
 
     /// return the cursor position in column
     pub fn col_idx(&self) -> usize {
-        let b = self.buffer.borrow();
-        let (_, c) = b.index_to_point(self.cursor.index);
-        c
+        self.buffer.borrow().index_to_point(self.cursor.index).1
     }
 
     /// return the cursor position in line,col corrdinate
     pub fn cursor_as_point(&self) -> (usize, usize) {
-        let b = self.buffer.borrow();
-        b.index_to_point(self.cursor.index)
+        self.buffer.borrow().index_to_point(self.cursor.index)
     }
 
     fn cursor_up(&mut self) {
@@ -584,7 +573,7 @@ impl<'a> View<'a> {
         let col = x / self.geometry.font_advance as i32 + self.viewport.col_start as i32;
         let line = y / self.geometry.font_height as i32 + self.viewport.line_start as i32;
 
-        let idx = self.buffer.borrow().point_to_index((line as _,col as _));
+        let idx = self.buffer.borrow().point_to_index((line as _, col as _));
         self.set_index(idx);
     }
 
@@ -651,7 +640,7 @@ impl<'a> View<'a> {
         let b = self.buffer.borrow();
         let mut tab = 0;
         let mut spaces = Vec::<u32>::new();
-        let tab_width = 0;
+        let _tab_width = 0;
         let mut contigus_space = 0;
 
         fn gcd(a: u32, b: u32) -> u32 {
@@ -708,11 +697,11 @@ impl<'a> View<'a> {
         }
 
         let end = self.viewport.line_end();
-        self.expand_styling(end);
+        self.expand_styling_cache(end);
     }
 
     /// Draw the vew on the given screen
-    pub fn draw(&self, screen: &mut Screen) {
+    pub fn draw(&self, screen: &mut Screen<'_, '_, '_>) {
         let mut y = 0;
 
         let adv = self.geometry.font_advance as i32;
@@ -806,16 +795,16 @@ pub trait ViewCmd {
     fn name(&self) -> &'static str;
     fn desc(&self) -> &'static str;
     fn keybinding(&self) -> Vec<KeyBinding>;
-    fn run(&mut self, &mut View);
+    fn run(&mut self, _: &mut View<'_>);
 }
 
 #[cfg(test)]
 mod tests {
-    use buffer::Buffer;
+    use crate::buffer::Buffer;
+    use crate::view::View;
+    use crate::window::Geometry;
     use std::cell::RefCell;
     use std::rc::Rc;
-    use view::View;
-    use window::Geometry;
 
     const GEO: Geometry = Geometry {
         x: 0,
@@ -829,7 +818,7 @@ mod tests {
     #[test]
     fn new_view() {
         let b = Rc::new(RefCell::new(Buffer::new()));
-        let v = View::new(b, GEO);
+        let _v = View::new(b, GEO);
     }
     #[test]
     fn insert() {

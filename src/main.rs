@@ -1,19 +1,3 @@
-extern crate clipboard2;
-extern crate num;
-extern crate rect_packer;
-extern crate ropey;
-extern crate sdl2;
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
-extern crate bitflags;
-extern crate chardet;
-extern crate config;
-extern crate directories;
-extern crate encoding;
-extern crate nfd;
-extern crate syntect;
-
 mod buffer;
 mod canvas;
 mod commands;
@@ -23,6 +7,8 @@ mod styling;
 mod view;
 mod window;
 
+use lazy_static::lazy_static;
+use config;
 use config::Config;
 use std::env;
 use std::fs;
