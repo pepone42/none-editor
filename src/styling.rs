@@ -1,3 +1,4 @@
+use lazy_static::lazy_static;
 use crate::buffer::Buffer;
 use std::iter::FromIterator;
 use std::ops::Deref;
@@ -40,7 +41,7 @@ impl StyledLine {
     pub fn new() -> Self {
         StyledLine { inner: Vec::new() }
     }
-    pub fn iter(&self) -> StyledLineIterator {
+    pub fn iter(&self) -> StyledLineIterator<'_> {
         let style_span = self.inner.get(0).cloned();
         let mut style_iter = self.inner.iter();
         style_iter.next();
