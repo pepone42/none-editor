@@ -454,22 +454,17 @@ impl<'a> View<'a> {
 
     /// return the cursor position in line
     pub fn line_idx(&self) -> usize {
-        let b = self.buffer.borrow();
-        let (l, _) = b.index_to_point(self.cursor.index);
-        l
+        self.buffer.borrow().index_to_point(self.cursor.index).0
     }
 
     /// return the cursor position in column
     pub fn col_idx(&self) -> usize {
-        let b = self.buffer.borrow();
-        let (_, c) = b.index_to_point(self.cursor.index);
-        c
+        self.buffer.borrow().index_to_point(self.cursor.index).1
     }
 
     /// return the cursor position in line,col corrdinate
     pub fn cursor_as_point(&self) -> (usize, usize) {
-        let b = self.buffer.borrow();
-        b.index_to_point(self.cursor.index)
+        self.buffer.borrow().index_to_point(self.cursor.index)
     }
 
     fn cursor_up(&mut self) {
