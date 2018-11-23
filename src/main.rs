@@ -1,11 +1,10 @@
 mod buffer;
-mod canvas;
 mod commands;
-mod fontcache;
 mod keybinding;
 mod styling;
 mod view;
 mod window;
+mod nanovg;
 
 use lazy_static::lazy_static;
 use config;

@@ -185,7 +185,7 @@ pub mod view {
         v.push(GenericViewCommand::new_box(
             "Enter",
             "Insert the return char",
-            &["Keypad Enter", "Return"],
+            &["NumpadEnter", "Return"],
             |v| v.insert_linefeed(),
         ));
         v.push(GenericViewCommand::new_box("Tab", "Add a tabulation", &["Tab"], |v| {
@@ -204,7 +204,7 @@ pub mod view {
         v.push(GenericViewCommand::new_box(
             "Backspace",
             "delete the char at left  or the selection",
-            &["Backspace"],
+            &["Back"],
             |v| v.backspace(),
         ));
         v.push(GenericViewCommand::new_box(
@@ -216,50 +216,50 @@ pub mod view {
         v.push(GenericViewCommand::new_box(
             "Up",
             "Move cursor up",
-            &["Up", "Num-Up"],
+            &["Up"],
             |v| v.move_cursor(Direction::Up, false),
         ));
         v.push(GenericViewCommand::new_box(
             "Down",
             "Move cursor down",
-            &["Down", "Num-Down"],
+            &["Down"],
             |v| v.move_cursor(Direction::Down, false),
         ));
         v.push(GenericViewCommand::new_box(
             "Left",
             "Move cursor left",
-            &["Left", "Num-Left"],
+            &["Left"],
             |v| v.move_cursor(Direction::Left, false),
         ));
         v.push(GenericViewCommand::new_box(
             "Right",
             "Move cursor right",
-            &["Right", "Num-Right"],
+            &["Right"],
             |v| v.move_cursor(Direction::Right, false),
         ));
 
         v.push(GenericViewCommand::new_box(
             "UpSel",
             "Move cursor up expanding selection",
-            &["Shift-Up", "Shift-Num-Up"],
+            &["Shift-Up"],
             |v| v.move_cursor(Direction::Up, true),
         ));
         v.push(GenericViewCommand::new_box(
             "DownSel",
             "Move cursor down expanding selection",
-            &["Shift-Down", "Shift-Num-Down"],
+            &["Shift-Down"],
             |v| v.move_cursor(Direction::Down, true),
         ));
         v.push(GenericViewCommand::new_box(
             "LeftSel",
             "Move cursor left expanding selection",
-            &["Shift-Left", "Shift-Num-Left"],
+            &["Shift-Left"],
             |v| v.move_cursor(Direction::Left, true),
         ));
         v.push(GenericViewCommand::new_box(
             "RightSel",
             "Move cursor right expanding selection",
-            &["Shift-Right", "Shift-Num-Right"],
+            &["Shift-Right"],
             |v| v.move_cursor(Direction::Right, true),
         ));
 

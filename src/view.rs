@@ -11,12 +11,14 @@ use crate::styling::SYNTAXSET;
 use syntect::highlighting;
 
 use crate::buffer::Buffer;
-use crate::canvas::{Color, Screen};
 use crate::keybinding::KeyBinding;
 use crate::styling::StylingCache;
 use crate::styling::STYLE;
 use crate::window::Geometry;
 use crate::SETTINGS;
+
+use nanovg::Color;
+use crate::nanovg::Canvas;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Indentation {
@@ -245,7 +247,7 @@ impl<'a> View<'a> {
     pub fn relayout(&mut self, geometry: Geometry) {
         self.geometry = geometry;
         self.viewport.heigth = (self.geometry.h / self.geometry.font_height) as usize - 1;
-        self.viewport.width = (self.geometry.w / self.geometry.font_advance) as usize - 1;
+        self.viewport.width = (self.geometry.w/ self.geometry.font_advance) as usize - 1;
         let end = self.viewport.line_end();
         self.expand_styling_cache(end);
     }
@@ -701,20 +703,18 @@ impl<'a> View<'a> {
     }
 
     /// Draw the vew on the given screen
-    pub fn draw(&self, screen: &mut Screen<'_, '_, '_>) {
-        let mut y = 0;
-
-        let adv = self.geometry.font_advance as i32;
-        let line_spacing = self.geometry.font_height as i32;
-        let tabsize: i32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
+    pub fn draw(&self, canvas: &mut Canvas) {
+        let adv = self.geometry.font_advance;
+        let line_spacing = self.geometry.font_height;
+        let mut y = line_spacing;
+        
+        let tabsize: u32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
 
         let first_visible_line = self.viewport.line_start;
         let first_visible_col = self.viewport.col_start;
         let page_len = self.viewport.heigth;
 
         let mut current_col = 0;
-
-        screen.set_font("mono");
 
         let mut line_index = first_visible_line;
         for line in self.buffer.borrow().lines().skip(first_visible_line).take(page_len + 1) {
@@ -726,18 +726,18 @@ impl<'a> View<'a> {
             let mut idx = self.buffer.borrow().line_to_char(line_index);
 
             for c in line.chars() {
-                let x = (current_col - first_visible_col as i32) * adv;
+                let x = (current_col - first_visible_col as u32) as f32 * adv;
 
                 let fg = match style.as_mut().and_then(|s| s.next()) {
-                    None => Color::RGB(255, 255, 255),
-                    Some(s) => Color::RGB(s.foreground.r, s.foreground.g, s.foreground.b),
+                    None => Color::from_rgb(255, 255, 255),
+                    Some(s) => Color::from_rgb(s.foreground.r, s.foreground.g, s.foreground.b),
                 };
                 match self.selection {
                     Some(sel) if sel.contains(idx) => {
                         let color = STYLE.theme.settings.selection.unwrap_or(highlighting::Color::WHITE);
-                        screen.set_color(Color::RGB(color.r, color.g, color.b));
-                        screen.move_to(x, y);
-                        screen.draw_rect(adv as _, line_spacing as _);
+                        canvas.set_color(Color::from_rgb(color.r, color.g, color.b));
+                        canvas.move_to(x as _, y as _);
+                        canvas.draw_rect(adv as _, line_spacing as _);
                     }
                     _ => (),
                 }
@@ -752,9 +752,9 @@ impl<'a> View<'a> {
                     // Bom hiding. TODO: rework
                     '\u{feff}' | '\u{fffe}' => (),
                     _ => {
-                        screen.move_to(x, y);
-                        screen.set_color(fg);
-                        screen.draw_char(c);
+                        canvas.move_to(x as _, y as _);
+                        canvas.set_color(fg);
+                        canvas.draw_char(c);
                         current_col += 1;
                     }
                 }
@@ -771,9 +771,9 @@ impl<'a> View<'a> {
         if self.viewport.contain(line, col) {
             line -= first_visible_line;
             col -= first_visible_col;
-            screen.move_to(col as i32 * adv, line as i32 * line_spacing);
-            screen.set_color(Color::RGB(fg.r, fg.g, fg.b));
-            screen.draw_rect(2, line_spacing as _);
+            canvas.move_to(col as f32 * adv, line as f32 * line_spacing);
+            canvas.set_color(Color::from_rgb(fg.r, fg.g, fg.b));
+            canvas.draw_rect(2.0, line_spacing as _);
         }
     }
 
@@ -791,6 +791,7 @@ impl<'a> View<'a> {
     }
 }
 
+
 pub trait ViewCmd {
     fn name(&self) -> &'static str;
     fn desc(&self) -> &'static str;
@@ -807,12 +808,12 @@ mod tests {
     use std::rc::Rc;
 
     const GEO: Geometry = Geometry {
-        x: 0,
-        y: 0,
-        w: 100,
-        h: 100,
-        font_advance: 10,
-        font_height: 10,
+        x: 0.0,
+        y: 0.0,
+        w: 100.0,
+        h: 100.0,
+        font_advance: 10.0,
+        font_height: 10.0,
     };
 
     #[test]
