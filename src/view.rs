@@ -708,7 +708,7 @@ impl<'a> View<'a> {
         let line_spacing = self.geometry.font_height;
         let mut y = line_spacing;
         
-        let tabsize: u32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
+        let tabsize: i32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
 
         let first_visible_line = self.viewport.line_start;
         let first_visible_col = self.viewport.col_start;
@@ -726,7 +726,7 @@ impl<'a> View<'a> {
             let mut idx = self.buffer.borrow().line_to_char(line_index);
 
             for c in line.chars() {
-                let x = (current_col - first_visible_col as u32) as f32 * adv;
+                let x = (current_col - first_visible_col as i32) as f32 * adv;
 
                 let fg = match style.as_mut().and_then(|s| s.next()) {
                     None => Color::from_rgb(255, 255, 255),
@@ -771,7 +771,7 @@ impl<'a> View<'a> {
         if self.viewport.contain(line, col) {
             line -= first_visible_line;
             col -= first_visible_col;
-            canvas.move_to(col as f32 * adv, line as f32 * line_spacing);
+            canvas.move_to(col as f32 * adv, line as f32 * line_spacing - canvas.font_metrics.descender);
             canvas.set_color(Color::from_rgb(fg.r, fg.g, fg.b));
             canvas.draw_rect(2.0, line_spacing as _);
         }

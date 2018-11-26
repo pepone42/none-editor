@@ -121,8 +121,8 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
     let mut system_window = crate::nanovg::System::new("None", width, height, FONT_SIZE);
 
     // create window. TODO: passing font_height as parameter feel off
-    let font_height = system_window.line_spacing();
-    let font_advance = system_window.char_advance();
+    let font_height = system_window.canvas.font_metrics.line_height;
+    let font_advance = system_window.canvas.font_metrics.advance;
     let mut win = EditorWindow::new(
         Geometry {
             x: 0.0,

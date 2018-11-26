@@ -3,6 +3,13 @@ use glutin;
 use glutin::GlContext;
 use nanovg;
 
+pub struct MonoFontMetrics {
+    pub advance: f32,
+    pub ascender: f32,
+    pub descender: f32,
+    pub line_height: f32,
+}
+
 #[derive(Debug)]
 pub enum DisplayList {
     Move(f32, f32),
@@ -12,34 +19,42 @@ pub enum DisplayList {
     Clear,
 }
 
-pub struct Canvas(Vec<DisplayList>);
+pub struct Canvas {
+    cmdlist: Vec<DisplayList>,
+    pub font_metrics: MonoFontMetrics,
+}
 
 impl Canvas {
-    pub fn new() -> Self {
-        Canvas(Vec::new())
+    fn new(font_metrics: MonoFontMetrics) -> Self {
+
+        Canvas{
+            cmdlist: Vec::new(),
+            font_metrics
+        }
+
     }
     pub fn clear(&mut self, color: nanovg::Color) {
-        self.0.clear();
+        self.cmdlist.clear();
         self.set_color(color);
-        self.0.push(DisplayList::Clear);
+        self.cmdlist.push(DisplayList::Clear);
     }
 
     pub fn set_color(&mut self, color: nanovg::Color) {
-        self.0.push(DisplayList::Color(color));
+        self.cmdlist.push(DisplayList::Color(color));
     }
     /// Draw a rect
     pub fn draw_rect(&mut self, w: f32, h: f32) {
-        self.0.push(DisplayList::Rect(w, h));
+        self.cmdlist.push(DisplayList::Rect(w, h));
     }
 
     /// Draw a char
     pub fn draw_char(&mut self, c: char) {
-        self.0.push(DisplayList::Char(c));
+        self.cmdlist.push(DisplayList::Char(c));
     }
 
     /// move the pointer to x,y
     pub fn move_to(&mut self, x: f32, y: f32) {
-        self.0.push(DisplayList::Move(x, y));
+        self.cmdlist.push(DisplayList::Move(x, y));
     }
 }
 
@@ -57,7 +72,7 @@ impl System {
         let window = glutin::WindowBuilder::new()
             .with_title(title)
             .with_dimensions(glutin::dpi::LogicalSize::new(width as _, height as _));
-        let context = glutin::ContextBuilder::new().with_vsync(true).with_srgb(true);
+        let context = glutin::ContextBuilder::new();//.with_vsync(true).with_srgb(true);
         let window = glutin::GlWindow::new(window, context, &events_loop).unwrap();
 
         unsafe {
@@ -88,12 +103,27 @@ impl System {
             window.get_inner_size().unwrap().to_physical(hidpi_factor)
         );
 
+        let mut advance: f32 = 0.0;
+        let mut text_metrics: nanovg::TextMetrics = nanovg::TextMetrics {ascender: 0.0,descender: 0.0,line_height: 0.0};
+        
+        nvgcontext.frame((window.get_inner_size().unwrap().width as _, window.get_inner_size().unwrap().height as _), hidpi_factor as _, |frame| {
+            advance = frame.text_bounds(mono_font, (0.0, 0.0), "_", text_option).0;
+            text_metrics = frame.text_metrics(mono_font, text_option);
+        });
+
+        let font_metrics = MonoFontMetrics {
+            advance,
+            ascender: text_metrics.ascender,
+            descender: text_metrics.descender,
+            line_height: text_metrics.line_height,
+        };
+
         System {
             events_loop,
             window,
             nvgcontext,
             text_option,
-            canvas: Canvas::new(),
+            canvas: Canvas::new(font_metrics),
         }
     }
 
@@ -117,26 +147,26 @@ impl System {
         self.window.get_inner_size().unwrap().to_physical(self.hidpi_factor()).height
     }
 
-    pub fn line_spacing(&self) -> f32 {
-        let mut line_height = 0.0;
+    // pub fn line_spacing(&self) -> f32 {
+    //     let mut line_height = 0.0;
 
-        let font = nanovg::Font::find(&self.nvgcontext, "Mono").unwrap();
-        let text_option = self.text_option;
-        self.nvgcontext.frame((self.log_width() as _, self.log_height() as _), self.hidpi_factor() as _, |frame| {
-            line_height = frame.text_metrics(font, text_option).line_height;
-        });
-        line_height
-    }
+    //     let font = nanovg::Font::find(&self.nvgcontext, "Mono").unwrap();
+    //     let text_option = self.text_option;
+    //     self.nvgcontext.frame((self.log_width() as _, self.log_height() as _), self.hidpi_factor() as _, |frame| {
+    //         line_height = frame.text_metrics(font, text_option).line_height;
+    //     });
+    //     line_height
+    // }
 
-    pub fn char_advance(&self) -> f32 {
-        let mut advance = 0.0;
-        let font = nanovg::Font::find(&self.nvgcontext, "Mono").unwrap();
-        let text_option = self.text_option;
-        self.nvgcontext.frame((self.log_width() as _, self.log_height() as _), self.hidpi_factor() as _, |frame| {
-            advance = frame.text_bounds(font, (0.0, 0.0), "_", text_option).0;
-        });
-        advance
-    }
+    // pub fn char_advance(&self) -> f32 {
+    //     let mut advance = 0.0;
+    //     let font = nanovg::Font::find(&self.nvgcontext, "Mono").unwrap();
+    //     let text_option = self.text_option;
+    //     self.nvgcontext.frame((self.log_width() as _, self.log_height() as _), self.hidpi_factor() as _, |frame| {
+    //         advance = frame.text_bounds(font, (0.0, 0.0), "_", text_option).0;
+    //     });
+    //     advance
+    // }
 
     pub fn render(&mut self) {
         let mut x: f32 = 0.0;
@@ -150,7 +180,7 @@ impl System {
         let phy_height = self.phy_height();
 
         self.nvgcontext.frame((self.log_width() as _, self.log_height() as _), self.hidpi_factor() as _, |frame| {
-            for cmd in &self.canvas.0 {
+            for cmd in &self.canvas.cmdlist {
                 match *cmd {
                     DisplayList::Color(col) => color = col,
                     DisplayList::Move(to_x, to_y) => {
@@ -169,7 +199,7 @@ impl System {
                     DisplayList::Char(c) => {
                         text_option.color = color;
                         frame.text(font, (x, y), c.to_string(), text_option);
-                        x += self.char_advance();
+                        x += self.canvas.font_metrics.advance;
                     }
                     DisplayList::Clear => unsafe {
                         gl::ClearColor(color.red(), color.green(), color.blue(), color.alpha());
