@@ -227,14 +227,16 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
         // }
         let mut resized: Option<glutin::dpi::LogicalSize> = None;
         system_window.events_loop.poll_events(|event| {
-            if let glutin::Event::WindowEvent { event, .. } = event {
+            use glutin::{Event,WindowEvent::*,MouseScrollDelta};
+            if let Event::WindowEvent { event, .. } = event {
                 match event {
-                    glutin::WindowEvent::CloseRequested => running = false,
-                    glutin::WindowEvent::Resized(size) => {
+
+                    CloseRequested => running = false,
+                    Resized(size) => {
                         //system_window.window.resize(size.to_physical(system_window.hidpi_factor()))
                         resized = Some(size);
                     }
-                    glutin::WindowEvent::ReceivedCharacter(ch) => {
+                    ReceivedCharacter(ch) => {
                         match ch as u32 {
                             0x00...0x1F => (),
                             0x80...0x9F => (),
@@ -246,7 +248,7 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
                         }
                         //println!("CHR '{:?}' '{:?}'", ch, ch);
                     }
-                    glutin::WindowEvent::KeyboardInput { device_id, input } => {
+                    KeyboardInput { device_id, input } => {
                         //println!("KBI {:?} {:?}", device_id, input);
                         if input.state == glutin::ElementState::Pressed {
                             if let Some(k) = input.virtual_keycode {
@@ -272,6 +274,14 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
                                 redraw = true;
                             }
                         }
+                    }
+                    MouseWheel { delta: MouseScrollDelta::LineDelta(_,y), ..} => {
+                        if y>0.0 {
+                            win.views[win.current_view].move_me(Direction::Up, y as _);
+                        } else {
+                            win.views[win.current_view].move_me(Direction::Down, -y as _);
+                        }
+                        redraw = true;
                     }
                     _ => {}
                 }
