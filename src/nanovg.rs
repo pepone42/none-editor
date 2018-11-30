@@ -105,7 +105,7 @@ impl System {
 
         let mut advance: f32 = 0.0;
         let mut text_metrics: nanovg::TextMetrics = nanovg::TextMetrics {ascender: 0.0,descender: 0.0,line_height: 0.0};
-        
+
         nvgcontext.frame((window.get_inner_size().unwrap().width as _, window.get_inner_size().unwrap().height as _), hidpi_factor as _, |frame| {
             advance = frame.text_bounds(mono_font, (0.0, 0.0), "_", text_option).0;
             text_metrics = frame.text_metrics(mono_font, text_option);
@@ -146,27 +146,6 @@ impl System {
     fn phy_height(&self) -> f64 {
         self.window.get_inner_size().unwrap().to_physical(self.hidpi_factor()).height
     }
-
-    // pub fn line_spacing(&self) -> f32 {
-    //     let mut line_height = 0.0;
-
-    //     let font = nanovg::Font::find(&self.nvgcontext, "Mono").unwrap();
-    //     let text_option = self.text_option;
-    //     self.nvgcontext.frame((self.log_width() as _, self.log_height() as _), self.hidpi_factor() as _, |frame| {
-    //         line_height = frame.text_metrics(font, text_option).line_height;
-    //     });
-    //     line_height
-    // }
-
-    // pub fn char_advance(&self) -> f32 {
-    //     let mut advance = 0.0;
-    //     let font = nanovg::Font::find(&self.nvgcontext, "Mono").unwrap();
-    //     let text_option = self.text_option;
-    //     self.nvgcontext.frame((self.log_width() as _, self.log_height() as _), self.hidpi_factor() as _, |frame| {
-    //         advance = frame.text_bounds(font, (0.0, 0.0), "_", text_option).0;
-    //     });
-    //     advance
-    // }
 
     pub fn render(&mut self) {
         let mut x: f32 = 0.0;

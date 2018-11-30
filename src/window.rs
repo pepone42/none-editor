@@ -152,81 +152,12 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
     }
 
     // main loop
-    //let mut event_pump = sdl_context.event_pump().unwrap();
-
     let mut redraw = true;
     let mut running = true;
     let mut mousex = 0.0;
     let mut mousey = 0.0;
     while running {
-        // for event in event_pump.poll_iter() {
-        //     redraw = true;
 
-        //     if let Event::KeyDown {
-        //         keycode: Some(k),
-        //         keymod,
-        //         ..
-        //     } = event
-        //     {
-        //         let mut km = keybinding::Mod::NONE;
-        //         if keymod.intersects(sdl2::keyboard::LCTRLMOD | sdl2::keyboard::RCTRLMOD) {
-        //             km |= keybinding::Mod::CTRL
-        //         }
-        //         if keymod.intersects(sdl2::keyboard::LALTMOD | sdl2::keyboard::RALTMOD) {
-        //             km |= keybinding::Mod::ALT
-        //         }
-        //         if keymod.intersects(sdl2::keyboard::LSHIFTMOD | sdl2::keyboard::RSHIFTMOD) {
-        //             km |= keybinding::Mod::SHIFT
-        //         }
-        //         // if keymod.intersects(sdl2::keyboard::NUMMOD) {
-        //         //     km |= keybinding::Mod::NUM
-        //         // }
-        //         if let Some(cmdid) = view_cmd_keybinding.get(&KeyBinding::new(k, km)) {
-        //             view_cmd[*cmdid].as_mut().run(&mut win.views[win.current_view]);
-        //         }
-        //         if let Some(cmdid) = win_cmd_keybinding.get(&KeyBinding::new(k, km)) {
-        //             win_cmd[*cmdid].as_mut().run(&mut win);
-        //         }
-        //     }
-        //     //#[cfg_attr(rustfmt, rustfmt_skip)]
-        //     match event {
-        //         Event::KeyDown {
-        //             keycode: Some(Keycode::Escape),
-        //             ..
-        //         }
-        //         | Event::Quit { .. } => break 'mainloop,
-        //         Event::Window {
-        //             win_event: WindowEvent::SizeChanged(w, h),
-        //             ..
-        //         } => {
-        //             width = w as _;
-        //             height = h as _;
-        //             win.resize(width as _, height as _);
-        //         }
-        //         Event::MouseWheel { direction, mut y, .. } => {
-        //             if direction == sdl2::mouse::MouseWheelDirection::Normal {
-        //                 y *= -1;
-        //             }
-        //             if y > 0 {
-        //                 win.views[win.current_view].move_me(Direction::Down, y * 3)
-        //             } else {
-        //                 win.views[win.current_view].move_me(Direction::Up, -y * 3)
-        //             }
-        //         }
-        //         Event::MouseButtonDown {
-        //             mouse_btn: sdl2::mouse::MouseButton::Left,
-        //             x,
-        //             y,
-        //             ..
-        //         } => {
-        //             win.views[win.current_view].click(x, y);
-        //         }
-        //         Event::TextInput { text: t, .. } => {
-        //             t.chars().for_each(|c| win.views[win.current_view].insert_char(c));
-        //         }
-        //         _ => {}
-        //     }
-        // }
         let mut resized: Option<glutin::dpi::LogicalSize> = None;
         system_window.events_loop.poll_events(|event| {
             use glutin::{Event,WindowEvent::*,MouseScrollDelta,MouseButton,dpi::LogicalPosition,ElementState};
@@ -236,7 +167,6 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
 
                     CloseRequested => running = false,
                     Resized(size) => {
-                        //system_window.window.resize(size.to_physical(system_window.hidpi_factor()))
                         resized = Some(size);
                     }
                     ReceivedCharacter(ch) => {
@@ -249,10 +179,8 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
                                 redraw = true;
                             }
                         }
-                        //println!("CHR '{:?}' '{:?}'", ch, ch);
                     }
-                    KeyboardInput { device_id, input } => {
-                        //println!("KBI {:?} {:?}", device_id, input);
+                    KeyboardInput { input, .. } => {
                         if input.state == glutin::ElementState::Pressed {
                             if let Some(k) = input.virtual_keycode {
                                 let mut km = keybinding::Mod::NONE;
@@ -318,7 +246,6 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
             win.draw(&mut system_window.canvas);
             system_window.render();
             system_window.present();
-        //screen.render(&mut canvas);
         } else {
             thread::sleep(time::Duration::from_millis(10));
         }

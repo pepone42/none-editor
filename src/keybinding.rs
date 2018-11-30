@@ -1,9 +1,8 @@
 use std::convert::From;
 
 use bitflags::bitflags;
-use glutin::{ModifiersState, VirtualKeyCode};
+use glutin::VirtualKeyCode;
 
-//#[derive(PartialEq,Eq,Debug,Hash)]
 bitflags! {
     pub struct Mod: u16 {
         const NONE = 0;
@@ -37,7 +36,7 @@ impl<'a> From<&'a str> for KeyBinding {
                 "ALT" => keymod |= Mod::ALT,
                 "LOGO" => keymod |= Mod::LOGO,
 
-                //code => keycode = Keycode::from_name(&code),
+                // Keycode
                 "KEY1" => keycode = Some(VirtualKeyCode::Key1),
                 "KEY2" => keycode = Some(VirtualKeyCode::Key2),
                 "KEY3" => keycode = Some(VirtualKeyCode::Key3),
