@@ -151,11 +151,14 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
         }
     }
 
+
     // main loop
+    use std::time::{Instant,Duration};
     let mut redraw = true;
     let mut running = true;
     let mut mousex = 0.0;
     let mut mousey = 0.0;
+    let mut last_click_instant  = Instant::now();
     while running {
 
         let mut resized: Option<glutin::dpi::LogicalSize> = None;
@@ -220,7 +223,14 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
                         mousey = y;
                     }
                     MouseInput { button: MouseButton::Left, state: ElementState::Pressed, ..} => {
-                        win.views[win.current_view].click(mousex as _, mousey as _);
+
+                        let duration = last_click_instant.elapsed();
+                        if duration < Duration::from_millis(500) {
+                            win.views[win.current_view].double_click(mousex as _, mousey as _);
+                        } else {
+                            win.views[win.current_view].click(mousex as _, mousey as _);
+                        }
+                        last_click_instant = Instant::now();
                         redraw = true;
                     }
                     _ => {}

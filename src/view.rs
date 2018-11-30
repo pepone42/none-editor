@@ -578,6 +578,9 @@ impl<'a> View<'a> {
         let idx = self.buffer.borrow().point_to_index((line as _, col as _));
         self.set_index(idx);
     }
+    pub fn double_click(&mut self, x: i32, y: i32) {
+        // TODO
+    }
 
     pub fn move_me(&mut self, dir: Direction, amount: i32) {
         for _ in 0..amount {
@@ -707,7 +710,7 @@ impl<'a> View<'a> {
         let adv = self.geometry.font_advance;
         let line_spacing = self.geometry.font_height;
         let mut y = line_spacing;
-        
+
         let tabsize: i32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
 
         let first_visible_line = self.viewport.line_start;
