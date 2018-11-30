@@ -279,10 +279,11 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
                         }
                     }
                     MouseWheel { delta: MouseScrollDelta::LineDelta(_,y), ..} => {
-                        if y>0.0 {
-                            win.views[win.current_view].move_me(Direction::Up, y as _);
+                        let y = y as i32;
+                        if y>0 {
+                            win.views[win.current_view].move_me(Direction::Up, y * 3);
                         } else {
-                            win.views[win.current_view].move_me(Direction::Down, -y as _);
+                            win.views[win.current_view].move_me(Direction::Down, -y * 3);
                         }
                         redraw = true;
                     }
