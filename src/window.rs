@@ -156,6 +156,8 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
 
     let mut redraw = true;
     let mut running = true;
+    let mut mousex = 0.0;
+    let mut mousey = 0.0;
     while running {
         // for event in event_pump.poll_iter() {
         //     redraw = true;
@@ -227,7 +229,8 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
         // }
         let mut resized: Option<glutin::dpi::LogicalSize> = None;
         system_window.events_loop.poll_events(|event| {
-            use glutin::{Event,WindowEvent::*,MouseScrollDelta};
+            use glutin::{Event,WindowEvent::*,MouseScrollDelta,MouseButton,dpi::LogicalPosition};
+
             if let Event::WindowEvent { event, .. } = event {
                 match event {
 
@@ -281,6 +284,14 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
                         } else {
                             win.views[win.current_view].move_me(Direction::Down, -y as _);
                         }
+                        redraw = true;
+                    }
+                    CursorMoved {position: LogicalPosition{x,y}, ..} => {
+                        mousex = x;
+                        mousey = y;
+                    }
+                    MouseInput { button: MouseButton::Left, ..} => {
+                        win.views[win.current_view].click(mousex as _, mousey as _);
                         redraw = true;
                     }
                     _ => {}
