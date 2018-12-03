@@ -762,7 +762,7 @@ impl<'a> View<'a> {
                     Some(sel) if sel.contains(idx) => {
                         let color = STYLE.theme.settings.selection.unwrap_or(highlighting::Color::WHITE);
                         canvas.set_color(Color::from_rgb(color.r, color.g, color.b));
-                        canvas.move_to(x as _, y as _);
+                        canvas.move_to(x as _, y - canvas.font_metrics.descender - line_spacing);
                         canvas.draw_rect(adv as _, line_spacing as _);
                     }
                     _ => (),
