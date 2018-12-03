@@ -17,8 +17,8 @@ use crate::styling::STYLE;
 use crate::window::Geometry;
 use crate::SETTINGS;
 
-use nanovg::Color;
 use crate::nanovg::Canvas;
+use nanovg::Color;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Indentation {
@@ -247,7 +247,7 @@ impl<'a> View<'a> {
     pub fn relayout(&mut self, geometry: Geometry) {
         self.geometry = geometry;
         self.viewport.heigth = (self.geometry.h / self.geometry.font_height) as usize - 1;
-        self.viewport.width = (self.geometry.w/ self.geometry.font_advance) as usize - 1;
+        self.viewport.width = (self.geometry.w / self.geometry.font_advance) as usize - 1;
         let end = self.viewport.line_end();
         self.expand_styling_cache(end);
     }
@@ -577,9 +577,32 @@ impl<'a> View<'a> {
 
         let idx = self.buffer.borrow().point_to_index((line as _, col as _));
         self.set_index(idx);
+        self.clear_selection();
     }
     pub fn double_click(&mut self, x: i32, y: i32) {
-        // TODO
+        self.select_word_under_cursor();
+    }
+
+    pub fn select_word_under_cursor(&mut self) {
+        let line = self.buffer.borrow().char_to_line(self.cursor.index);
+        let mut start = self.buffer.borrow().line_to_char(line);
+        let mut end = start;
+        for c in self.buffer.borrow().chars_on_line(line) {
+
+            match c {
+                ' ' | '`' | '~' | '!' | '@' | '#' | '$' | '%' | '^' | '&' | '*' | '(' | ')' | '-' | '=' | '+' | '['
+                | '{' | ']' | '}' | '\\' | '|' | ';' | ':' | '\'' | '"' | ',' | '.' | '<' | '>' | '/' | '?' => {
+                    if start <= self.cursor.index && self.cursor.index < end {
+                        self.selection = Some(Selection{start,end});
+                        return;
+                    }
+                    start = end + 1;
+                }
+                _ => {}
+            }
+            end += 1;
+        }
+        self.selection = None;
     }
 
     pub fn move_me(&mut self, dir: Direction, amount: i32) {
@@ -774,7 +797,10 @@ impl<'a> View<'a> {
         if self.viewport.contain(line, col) {
             line -= first_visible_line;
             col -= first_visible_col;
-            canvas.move_to(col as f32 * adv, line as f32 * line_spacing - canvas.font_metrics.descender);
+            canvas.move_to(
+                col as f32 * adv,
+                line as f32 * line_spacing - canvas.font_metrics.descender,
+            );
             canvas.set_color(Color::from_rgb(fg.r, fg.g, fg.b));
             canvas.draw_rect(2.0, line_spacing as _);
         }
@@ -793,7 +819,6 @@ impl<'a> View<'a> {
         }
     }
 }
-
 
 pub trait ViewCmd {
     fn name(&self) -> &'static str;

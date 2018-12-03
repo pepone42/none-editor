@@ -132,6 +132,12 @@ impl Buffer {
     pub fn lines(&self) -> ropey::iter::Lines<'_> {
         self.rope.lines()
     }
+
+    /// iterate over chars of the given line
+    pub fn chars_on_line(&self,line: usize) -> ropey::iter::Chars<'_> {
+        self.rope.line(line).chars()
+    }
+
     /// Total number of chars in the buffer
     pub fn len_chars(&self) -> usize {
         self.rope.len_chars()
