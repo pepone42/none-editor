@@ -212,9 +212,9 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
                     MouseWheel { delta: MouseScrollDelta::LineDelta(_,y), ..} => {
                         let y = y as i32;
                         if y>0 {
-                            win.views[win.current_view].move_me(Direction::Up, y * 3);
+                            win.views[win.current_view].scroll(Direction::Up, y * 3);
                         } else {
-                            win.views[win.current_view].move_me(Direction::Down, -y * 3);
+                            win.views[win.current_view].scroll(Direction::Down, -y * 3);
                         }
                         redraw = true;
                     }

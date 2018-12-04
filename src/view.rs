@@ -571,6 +571,7 @@ impl<'a> View<'a> {
         self.cursor.set(idx);
     }
 
+    /// Set the cursor to the given pixel position
     pub fn click(&mut self, x: i32, y: i32) {
         let col = x / self.geometry.font_advance as i32 + self.viewport.col_start as i32;
         let line = y / self.geometry.font_height as i32 + self.viewport.line_start as i32;
@@ -579,10 +580,13 @@ impl<'a> View<'a> {
         self.set_index(idx);
         self.clear_selection();
     }
+
+    /// select the word when double clicked
     pub fn double_click(&mut self, x: i32, y: i32) {
         self.select_word_under_cursor();
     }
 
+    /// Select the word under the cursor
     pub fn select_word_under_cursor(&mut self) {
         let line = self.buffer.borrow().char_to_line(self.cursor.index);
         let mut start = self.buffer.borrow().line_to_char(line);
@@ -605,7 +609,8 @@ impl<'a> View<'a> {
         self.selection = None;
     }
 
-    pub fn move_me(&mut self, dir: Direction, amount: i32) {
+    /// scroll the view in the given direction
+    pub fn scroll(&mut self, dir: Direction, amount: i32) {
         for _ in 0..amount {
             match dir {
                 Direction::Up => {
