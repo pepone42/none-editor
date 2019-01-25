@@ -200,11 +200,11 @@ impl Buffer {
         (l, c)
     }
     /// Convert a point (line, column) to an index
-    pub fn point_to_index(&self, point: (usize, usize)) -> usize {
+    pub fn point_to_index(&self, line: usize, col: usize) -> usize {
         use std::cmp::min;
-        let l = min(point.0, self.len_lines() - 1);
+        let l = min(line, self.len_lines() - 1);
 
-        let c = min(point.1, self.line_len_no_eol(l));
+        let c = min(col, self.line_len_no_eol(l));
         self.line_to_char(l) + c
     }
 }
@@ -256,15 +256,15 @@ mod tests {
     fn point_to_index() {
         let buf = Buffer::from_str("text\nplops\ntoto  ");
         // Normal case
-        assert_eq!(buf.point_to_index((0, 3)), 3);
-        assert_eq!(buf.point_to_index((0, 4)), 4);
-        assert_eq!(buf.point_to_index((1, 0)), 5);
-        assert_eq!(buf.point_to_index((2, 1)), 12);
+        assert_eq!(buf.point_to_index(0, 3), 3);
+        assert_eq!(buf.point_to_index(0, 4), 4);
+        assert_eq!(buf.point_to_index(1, 0), 5);
+        assert_eq!(buf.point_to_index(2, 1), 12);
 
         // oob case
-        assert_eq!(buf.point_to_index((0, 5)), 4); // col too far
-        assert_eq!(buf.point_to_index((4, 1)), 12); // line too far
-        assert_eq!(buf.point_to_index((4, 6)), 17); // line too far, EOF is treated like a char
+        assert_eq!(buf.point_to_index(0, 5), 4); // col too far
+        assert_eq!(buf.point_to_index(4, 1), 12); // line too far
+        assert_eq!(buf.point_to_index(4, 6), 17); // line too far, EOF is treated like a char
     }
     #[test]
     fn line_to_last_char() {

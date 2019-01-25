@@ -5,6 +5,7 @@ mod styling;
 mod view;
 mod window;
 mod nanovg;
+mod cursor;
 
 use lazy_static::lazy_static;
 use config;
