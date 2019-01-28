@@ -151,38 +151,40 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
         }
     }
 
-
     // main loop
-    use std::time::{Instant,Duration};
+    #[derive(Debug,Clone,Copy,PartialEq,Eq)]
+    enum MouseState {
+        Clicked,
+        DoubleClicked,
+        Released,
+    }
+    use std::time::{Duration, Instant};
     let mut redraw = true;
     let mut running = true;
     let mut mousex = 0.0;
     let mut mousey = 0.0;
-    let mut last_click_instant  = Instant::now();
+    let mut mouse_state = MouseState::Released;
+    let mut last_click_instant = Instant::now();
     while running {
-
         let mut resized: Option<glutin::dpi::LogicalSize> = None;
         system_window.events_loop.poll_events(|event| {
-            use glutin::{Event,WindowEvent::*,MouseScrollDelta,MouseButton,dpi::LogicalPosition,ElementState, ModifiersState};
+            use glutin::{dpi::LogicalPosition, ElementState, Event, MouseButton, MouseScrollDelta, WindowEvent::*};
 
             if let Event::WindowEvent { event, .. } = event {
                 match event {
-
                     CloseRequested => running = false,
                     Resized(size) => {
                         resized = Some(size);
                     }
-                    ReceivedCharacter(ch) => {
-                        match ch as u32 {
-                            0x00...0x1F => (),
-                            0x80...0x9F => (),
-                            0x7F => (),
-                            _ => {
-                                win.views[win.current_view].insert_char(ch);
-                                redraw = true;
-                            }
+                    ReceivedCharacter(ch) => match ch as u32 {
+                        0x00...0x1F => (),
+                        0x80...0x9F => (),
+                        0x7F => (),
+                        _ => {
+                            win.views[win.current_view].insert_char(ch);
+                            redraw = true;
                         }
-                    }
+                    },
                     KeyboardInput { input, .. } => {
                         if input.state == glutin::ElementState::Pressed {
                             if let Some(k) = input.virtual_keycode {
@@ -209,29 +211,53 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
                             }
                         }
                     }
-                    MouseWheel { delta: MouseScrollDelta::LineDelta(_,y), ..} => {
+                    MouseWheel {
+                        delta: MouseScrollDelta::LineDelta(_, y),
+                        ..
+                    } => {
                         let y = y as i32;
-                        if y>0 {
+                        if y > 0 {
                             win.views[win.current_view].scroll(Direction::Up, y * 3);
                         } else {
                             win.views[win.current_view].scroll(Direction::Down, -y * 3);
                         }
                         redraw = true;
                     }
-                    CursorMoved {position: LogicalPosition{x,y}, ..} => {
+                    CursorMoved {
+                        position: LogicalPosition { x, y },
+                        modifiers,
+                        ..
+                    } => {
                         mousex = x;
                         mousey = y;
+                        if mouse_state == MouseState::Clicked {
+                            win.views[win.current_view].click(mousex as _, mousey as _, true);
+                            redraw = true;
+                        }
                     }
-                    MouseInput { button: MouseButton::Left, state: ElementState::Pressed, modifiers,..} => {
-
+                    MouseInput {
+                        button: MouseButton::Left,
+                        state: ElementState::Pressed,
+                        modifiers,
+                        ..
+                    } => {
                         let duration = last_click_instant.elapsed();
                         if duration < Duration::from_millis(500) {
+                            mouse_state = MouseState::DoubleClicked;
                             win.views[win.current_view].double_click(mousex as _, mousey as _);
                         } else {
-                            win.views[win.current_view].click(mousex as _, mousey as _, modifiers.shift );
+                            mouse_state = MouseState::Clicked;
+                            win.views[win.current_view].click(mousex as _, mousey as _, modifiers.shift);
                         }
                         last_click_instant = Instant::now();
                         redraw = true;
+                    }
+                    MouseInput {
+                        button: MouseButton::Left,
+                        state: ElementState::Released,
+                        ..
+                    } => {
+                        mouse_state = MouseState::Released;
                     }
                     _ => {}
                 }
