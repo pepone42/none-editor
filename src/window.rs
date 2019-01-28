@@ -163,7 +163,7 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
 
         let mut resized: Option<glutin::dpi::LogicalSize> = None;
         system_window.events_loop.poll_events(|event| {
-            use glutin::{Event,WindowEvent::*,MouseScrollDelta,MouseButton,dpi::LogicalPosition,ElementState};
+            use glutin::{Event,WindowEvent::*,MouseScrollDelta,MouseButton,dpi::LogicalPosition,ElementState, ModifiersState};
 
             if let Event::WindowEvent { event, .. } = event {
                 match event {
@@ -222,13 +222,13 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
                         mousex = x;
                         mousey = y;
                     }
-                    MouseInput { button: MouseButton::Left, state: ElementState::Pressed, ..} => {
+                    MouseInput { button: MouseButton::Left, state: ElementState::Pressed, modifiers,..} => {
 
                         let duration = last_click_instant.elapsed();
                         if duration < Duration::from_millis(500) {
                             win.views[win.current_view].double_click(mousex as _, mousey as _);
                         } else {
-                            win.views[win.current_view].click(mousex as _, mousey as _);
+                            win.views[win.current_view].click(mousex as _, mousey as _, modifiers.shift );
                         }
                         last_click_instant = Instant::now();
                         redraw = true;

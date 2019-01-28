@@ -582,13 +582,17 @@ impl<'a> View<'a> {
     // }
 
     /// Set the cursor to the given pixel position
-    pub fn click(&mut self, x: i32, y: i32) {
+    pub fn click(&mut self, x: i32, y: i32, expand_selection: bool) {
         let col = x / self.geometry.font_advance as i32 + self.viewport.col_start as i32;
         let line = y / self.geometry.font_height as i32 + self.viewport.line_start as i32;
 
         let idx = self.buffer.borrow().point_to_index(line as _, col as _);
         self.cursor.set_index(idx);
-        self.clear_selection();
+        if expand_selection {
+            self.expand_selection();
+        } else {
+            self.clear_selection();
+        }
     }
 
     /// select the word when double clicked
@@ -925,9 +929,9 @@ mod tests {
         v.cursor_up();
         assert_eq!(v.cursor.get_index(), 14);
         v.cursor_up();
-        assert_eq!(v.cursor.get_index(), 8);
+        assert_eq!(v.cursor.get_index(), 10);
         v.cursor_up();
-        assert_eq!(v.cursor.get_index(), 3);
+        assert_eq!(v.cursor.get_index(), 4);
     }
 
     #[test]
@@ -951,9 +955,9 @@ mod tests {
         v.cursor_down();
         assert_eq!(v.cursor.get_index(), 26);
         v.cursor_down();
-        assert_eq!(v.cursor.get_index(), 30);
+        assert_eq!(v.cursor.get_index(), 37);
         v.cursor_down();
-        assert_eq!(v.cursor.get_index(), 30);
+        assert_eq!(v.cursor.get_index(), 37);
     }
     #[test]
     fn cursor_left() {
