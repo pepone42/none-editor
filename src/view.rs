@@ -1,9 +1,6 @@
 use std::cell::RefCell;
 use std::io;
-use std::ops::Add;
-use std::ops::AddAssign;
 use std::ops::Range;
-use std::ops::SubAssign;
 use std::rc::Rc;
 
 use crate::styling::SYNTAXSET;
@@ -16,6 +13,7 @@ use crate::styling::StylingCache;
 use crate::styling::STYLE;
 use crate::window::Geometry;
 use crate::SETTINGS;
+use crate::cursor::Cursor;
 
 use crate::nanovg::Canvas;
 use nanovg::Color;
@@ -134,42 +132,42 @@ impl Into<Range<usize>> for Selection {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
-struct Cursor {
-    index: usize,
-    previous: usize,
-}
+// #[derive(Debug, Clone, Copy, Default)]
+// struct Cursor {
+//     index: usize,
+//     previous: usize,
+// }
 
-impl Cursor {
-    fn set(&mut self, index: usize) {
-        self.previous = self.index;
-        self.index = index;
-    }
-}
+// impl Cursor {
+//     fn set(&mut self, index: usize) {
+//         self.previous = self.index;
+//         self.index = index;
+//     }
+// }
 
-impl Add<usize> for Cursor {
-    type Output = Cursor;
-    fn add(self, other: usize) -> Cursor {
-        Cursor {
-            index: self.index + other,
-            previous: self.index,
-        }
-    }
-}
+// impl Add<usize> for Cursor {
+//     type Output = Cursor;
+//     fn add(self, other: usize) -> Cursor {
+//         Cursor {
+//             index: self.index + other,
+//             previous: self.index,
+//         }
+//     }
+// }
 
-impl AddAssign<usize> for Cursor {
-    fn add_assign(&mut self, other: usize) {
-        self.previous = self.index;
-        self.index = self.index + other;
-    }
-}
+// impl AddAssign<usize> for Cursor {
+//     fn add_assign(&mut self, other: usize) {
+//         self.previous = self.index;
+//         self.index = self.index + other;
+//     }
+// }
 
-impl SubAssign<usize> for Cursor {
-    fn sub_assign(&mut self, other: usize) {
-        self.previous = self.index;
-        self.index = self.index - other;
-    }
-}
+// impl SubAssign<usize> for Cursor {
+//     fn sub_assign(&mut self, other: usize) {
+//         self.previous = self.index;
+//         self.index = self.index - other;
+//     }
+// }
 
 #[derive(Debug, Clone, Copy, Default)]
 struct Viewport {
@@ -207,8 +205,8 @@ impl<'a> View<'a> {
     /// Create a new View for the given buffer
     pub fn new(buffer: Rc<RefCell<Buffer>>, geometry: Geometry) -> Self {
         let mut v = View {
-            buffer,
-            cursor: Cursor::default(),
+            buffer: buffer.clone(),
+            cursor: Cursor::new(buffer.clone()),
             selection: None,
             undo_stack: UndoStack::new(),
             linefeed: LineFeed::LF,
@@ -255,7 +253,7 @@ impl<'a> View<'a> {
     fn get_state(&self) -> State {
         State {
             buffer: self.buffer.borrow().clone(),
-            cursor: self.cursor,
+            cursor: self.cursor.clone(),
         }
     }
 
@@ -310,23 +308,29 @@ impl<'a> View<'a> {
         }
     }
 
-    pub fn edit(&mut self, r: Range<usize>, text: &str) {
-        let start = self.line_idx();
-        self.push_state();
+    // pub fn edit(&mut self, r: Range<usize>, text: &str) {
+    //     let start = self.line_idx();
+    //     self.push_state();
 
-        if r.start != r.end {
-            self.cursor.set(r.start);
-            self.buffer.borrow_mut().remove(r.clone());
-        }
-        self.buffer.borrow_mut().insert(r.start, text);
+    //     // Clear selection if any
+    //     if let Some(r) = self.selection {
+    //         self.cursor.set_index(r.lower());
+    //         self.buffer.borrow_mut().remove(r);
+    //     }
 
-        self.set_index(r.start + text.chars().count());
-        self.clear_selection();
-        self.focus_on_cursor();
+    //     if r.start != r.end {
+    //         self.cursor.set_index(r.start);
+    //         self.buffer.borrow_mut().remove(r.clone());
+    //     }
+    //     self.buffer.borrow_mut().insert(r.start, text);
 
-        let end = self.viewport.line_end();
-        self.update_styling_cache(start..end);
-    }
+    //     self.cursor.set_index(r.start + text.chars().count());
+    //     self.clear_selection();
+    //     self.focus_on_cursor();
+
+    //     let end = self.viewport.line_end();
+    //     self.update_styling_cache(start..end);
+    // }
 
     /// insert the given char at the cursor position
     pub fn insert_char(&mut self, ch: char) {
@@ -334,10 +338,10 @@ impl<'a> View<'a> {
         self.push_state();
 
         if let Some(r) = self.selection {
-            self.cursor.set(r.lower());
+            self.cursor.set_index(r.lower());
             self.buffer.borrow_mut().remove(r);
         }
-        self.buffer.borrow_mut().insert_char(self.cursor.index, ch);
+        self.buffer.borrow_mut().insert_char(self.cursor.get_index(), ch);
 
         self.cursor_right();
         self.clear_selection();
@@ -361,11 +365,11 @@ impl<'a> View<'a> {
         self.push_state();
 
         if let Some(r) = self.selection {
-            self.cursor.set(r.lower());
+            self.cursor.set_index(r.lower());
             self.buffer.borrow_mut().remove(r);
         }
-        self.buffer.borrow_mut().insert(self.cursor.index, &text);
-        self.cursor += text.chars().count();
+        self.buffer.borrow_mut().insert(self.cursor.get_index(), &text);
+        self.cursor.set_index(self.cursor.get_index() + text.chars().count());
         self.clear_selection();
         self.focus_on_cursor();
 
@@ -379,12 +383,12 @@ impl<'a> View<'a> {
         self.push_state();
         if let Some(r) = self.selection {
             let mut b = self.buffer.borrow_mut();
-            self.cursor.set(r.lower());
+            self.cursor.set_index(r.lower());
             b.remove(r);
-        } else if self.cursor.index > 0 {
+        } else if self.cursor.get_index() > 0 {
             self.cursor_left();
             let mut b = self.buffer.borrow_mut();
-            b.remove(self.cursor.index..self.cursor.previous);
+            b.remove(self.cursor.get_index()..self.cursor.get_previous_index());
         }
         self.clear_selection();
         self.focus_on_cursor();
@@ -398,13 +402,13 @@ impl<'a> View<'a> {
         let start = self.line_idx();
         self.push_state();
         if let Some(r) = self.selection {
-            self.cursor.set(r.lower());
+            self.cursor.set_index(r.lower());
             self.buffer.borrow_mut().remove(r);
-        } else if self.cursor.index < self.buffer.borrow().len_chars() {
-            let curs = self.cursor.index;
+        } else if self.cursor.get_index() < self.buffer.borrow().len_chars() {
+            let curs = self.cursor.get_index();
             self.cursor_right();
-            self.buffer.borrow_mut().remove(self.cursor.previous..self.cursor.index);
-            self.cursor.set(curs);
+            self.buffer.borrow_mut().remove(self.cursor.get_previous_index()..self.cursor.get_index());
+            self.cursor.set_index(curs);
         }
         self.clear_selection();
         self.focus_on_cursor();
@@ -456,60 +460,64 @@ impl<'a> View<'a> {
 
     /// return the cursor position in line
     pub fn line_idx(&self) -> usize {
-        self.buffer.borrow().index_to_point(self.cursor.index).0
+        self.buffer.borrow().index_to_point(self.cursor.get_index()).0
     }
 
     /// return the cursor position in column
     pub fn col_idx(&self) -> usize {
-        self.buffer.borrow().index_to_point(self.cursor.index).1
+        self.buffer.borrow().index_to_point(self.cursor.get_index()).1
     }
 
     /// return the cursor position in line,col corrdinate
     pub fn cursor_as_point(&self) -> (usize, usize) {
-        self.buffer.borrow().index_to_point(self.cursor.index)
+        self.buffer.borrow().index_to_point(self.cursor.get_index())
     }
 
     fn cursor_up(&mut self) {
-        let b = self.buffer.borrow();
-        let (mut l, c) = b.index_to_point(self.cursor.index);
-        if l > 0 {
-            l -= 1
-        };
-        self.cursor.set(b.point_to_index((l, c)));
+        // let b = self.buffer.borrow();
+        // let (mut l, c) = b.index_to_point(self.cursor.get_index());
+        // if l > 0 {
+        //     l -= 1
+        // };
+        // self.cursor.set_index(b.point_to_index(l, c));
+        self.cursor.up(1);
     }
     fn cursor_down(&mut self) {
-        let b = self.buffer.borrow();
-        let (mut l, c) = b.index_to_point(self.cursor.index);
-        if l < b.len_lines() - 1 {
-            l += 1
-        };
-        self.cursor.set(b.point_to_index((l, c)));
+        // let b = self.buffer.borrow();
+        // let (mut l, c) = b.index_to_point(self.cursor.get_index());
+        // if l < b.len_lines() - 1 {
+        //     l += 1
+        // };
+        // self.cursor.set_index(b.point_to_index(l, c));
+        self.cursor.down(1);
     }
     fn cursor_left(&mut self) {
-        let b = self.buffer.borrow();
-        if self.cursor.index > 0 {
-            let line_idx = b.char_to_line(self.cursor.index);
-            let line_idx_char = b.line_to_char(line_idx);
-            // handle crlf and lf
-            if self.cursor.index == line_idx_char {
-                self.cursor.set(b.line_to_last_char(line_idx - 1));
-            } else {
-                self.cursor -= 1;
-            }
-        }
+        // let b = self.buffer.borrow();
+        // if self.cursor.index > 0 {
+        //     let line_idx = b.char_to_line(self.cursor.index);
+        //     let line_idx_char = b.line_to_char(line_idx);
+        //     // handle crlf and lf
+        //     if self.cursor.index == line_idx_char {
+        //         self.cursor.set(b.line_to_last_char(line_idx - 1));
+        //     } else {
+        //         self.cursor -= 1;
+        //     }
+        // }
+        self.cursor.left();
     }
     fn cursor_right(&mut self) {
-        let b = self.buffer.borrow();
-        if self.cursor.index < b.len_chars() {
-            let line_idx = b.char_to_line(self.cursor.index);
-            let line_idx_char = b.line_to_last_char(line_idx);
-            // handle crlf and lf
-            if self.cursor.index == line_idx_char {
-                self.cursor.set(b.line_to_char(line_idx + 1));
-            } else {
-                self.cursor += 1;
-            }
-        }
+        // let b = self.buffer.borrow();
+        // if self.cursor.index < b.len_chars() {
+        //     let line_idx = b.char_to_line(self.cursor.index);
+        //     let line_idx_char = b.line_to_last_char(line_idx);
+        //     // handle crlf and lf
+        //     if self.cursor.index == line_idx_char {
+        //         self.cursor.set(b.line_to_char(line_idx + 1));
+        //     } else {
+        //         self.cursor += 1;
+        //     }
+        // }
+        self.cursor.right();
     }
 
     /// move the cursor in the given direction
@@ -538,8 +546,9 @@ impl<'a> View<'a> {
 
     /// put the cursor at the begining of the line
     pub fn home(&mut self, expand_selection: bool) {
-        let l = self.line_idx();
-        self.cursor.set(self.buffer.borrow().line_to_char(l));
+        // let l = self.line_idx();
+        // self.cursor.set(self.buffer.borrow().line_to_char(l));
+        self.cursor.goto_line_start();
         if expand_selection {
             self.expand_selection();
         } else {
@@ -550,8 +559,9 @@ impl<'a> View<'a> {
 
     /// put the cursor at the end of the line
     pub fn end(&mut self, expand_selection: bool) {
-        let l = self.line_idx();
-        self.cursor.set(self.buffer.borrow().line_to_last_char(l));
+        // let l = self.line_idx();
+        // self.cursor.set(self.buffer.borrow().line_to_last_char(l));
+        self.cursor.goto_line_end();
         if expand_selection {
             self.expand_selection();
         } else {
@@ -560,25 +570,29 @@ impl<'a> View<'a> {
         self.focus_on_cursor();
     }
 
-    /// return the cursor position in number of chars from the begining of the buffer
-    pub fn index(&self) -> usize {
-        self.cursor.index
-    }
+    // /// return the cursor position in number of chars from the begining of the buffer
+    // pub fn index(&self) -> usize {
+    //     self.cursor.get_index()
+    // }
 
-    /// put the cursor at the given position
-    pub fn set_index(&mut self, idx: usize) {
-        assert!(idx <= self.buffer.borrow().len_chars());
-        self.cursor.set(idx);
-    }
+    // /// put the cursor at the given position
+    // pub fn set_index(&mut self, idx: usize) {
+    //     assert!(idx <= self.buffer.borrow().len_chars());
+    //     self.cursor.set(idx);
+    // }
 
     /// Set the cursor to the given pixel position
-    pub fn click(&mut self, x: i32, y: i32) {
+    pub fn click(&mut self, x: i32, y: i32, expand_selection: bool) {
         let col = x / self.geometry.font_advance as i32 + self.viewport.col_start as i32;
         let line = y / self.geometry.font_height as i32 + self.viewport.line_start as i32;
 
-        let idx = self.buffer.borrow().point_to_index((line as _, col as _));
-        self.set_index(idx);
-        self.clear_selection();
+        let idx = self.buffer.borrow().point_to_index(line as _, col as _);
+        self.cursor.set_index(idx);
+        if expand_selection {
+            self.expand_selection();
+        } else {
+            self.clear_selection();
+        }
     }
 
     /// select the word when double clicked
@@ -588,7 +602,7 @@ impl<'a> View<'a> {
 
     /// Select the word under the cursor
     pub fn select_word_under_cursor(&mut self) {
-        let line = self.buffer.borrow().char_to_line(self.cursor.index);
+        let line = self.buffer.borrow().char_to_line(self.cursor.get_index());
         let mut start = self.buffer.borrow().line_to_char(line);
         let mut end = start;
         for c in self.buffer.borrow().chars_on_line(line) {
@@ -596,7 +610,7 @@ impl<'a> View<'a> {
             match c {
                 ' ' | '`' | '~' | '!' | '@' | '#' | '$' | '%' | '^' | '&' | '*' | '(' | ')' | '-' | '=' | '+' | '['
                 | '{' | ']' | '}' | '\\' | '|' | ';' | ':' | '\'' | '"' | ',' | '.' | '<' | '>' | '/' | '?' => {
-                    if start <= self.cursor.index && self.cursor.index < end {
+                    if start <= self.cursor.get_index() && self.cursor.get_index() < end {
                         self.selection = Some(Selection{start,end});
                         return;
                     }
@@ -817,10 +831,10 @@ impl<'a> View<'a> {
     }
     fn expand_selection(&mut self) {
         self.selection = if let Some(mut selection) = self.selection {
-            selection.expand(self.cursor.index);
+            selection.expand(self.cursor.get_index());
             Some(selection)
         } else {
-            Some(Selection::new(self.cursor.previous, self.cursor.index))
+            Some(Selection::new(self.cursor.get_previous_index(), self.cursor.get_index()))
         }
     }
 }
@@ -862,7 +876,7 @@ mod tests {
         assert_eq!(v.to_string(), "rtext");
         v.insert_char('e');
         assert_eq!(v.to_string(), "retext");
-        v.set_index(6);
+        v.cursor.set_index(6);
         v.insert_char('e');
         assert_eq!(v.to_string(), "retexte");
         v.insert_char('f');
@@ -880,11 +894,21 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn set_index_oob() {
         let b = Rc::new(RefCell::new(Buffer::from_str("text")));
         let mut v = View::new(b, GEO);
-        v.set_index(5);
+        v.cursor.set_index(5);
+        assert_eq!(v.cursor.get_index(), 4);
+    }
+
+    #[test]
+    fn set_index() {
+        let b = Rc::new(RefCell::new(Buffer::from_str("text\nplop")));
+        let mut v = View::new(b, GEO);
+        v.cursor.set_index(4);
+        assert_eq!(v.cursor.get_index(), 4);
+        v.cursor.set_index(5);
+        assert_eq!(v.cursor.get_index(), 5);
     }
 
     #[test]
@@ -893,21 +917,21 @@ mod tests {
             "text\nhello\nme!\nan other very long line",
         )));
         let mut v = View::new(b, GEO);
-        v.set_index(11);
+        v.cursor.set_index(11);
         v.cursor_up();
-        assert_eq!(v.index(), 5);
+        assert_eq!(v.cursor.get_index(), 5);
         v.cursor_up();
-        assert_eq!(v.index(), 0);
+        assert_eq!(v.cursor.get_index(), 0);
         v.cursor_up();
-        assert_eq!(v.index(), 0);
+        assert_eq!(v.cursor.get_index(), 0);
 
-        v.set_index(25);
+        v.cursor.set_index(25);
         v.cursor_up();
-        assert_eq!(v.index(), 14);
+        assert_eq!(v.cursor.get_index(), 14);
         v.cursor_up();
-        assert_eq!(v.index(), 8);
+        assert_eq!(v.cursor.get_index(), 10);
         v.cursor_up();
-        assert_eq!(v.index(), 3);
+        assert_eq!(v.cursor.get_index(), 4);
     }
 
     #[test]
@@ -917,59 +941,59 @@ mod tests {
         )));
         let mut v = View::new(b, GEO);
         v.cursor_down();
-        assert_eq!(v.index(), 17);
+        assert_eq!(v.cursor.get_index(), 17);
         v.cursor_down();
-        assert_eq!(v.index(), 23);
+        assert_eq!(v.cursor.get_index(), 23);
         v.cursor_down();
-        assert_eq!(v.index(), 27);
+        assert_eq!(v.cursor.get_index(), 27);
         v.cursor_down();
-        assert_eq!(v.index(), 27);
+        assert_eq!(v.cursor.get_index(), 27);
 
-        v.set_index(10); // on the second t of text
+        v.cursor.set_index(10); // on the second t of text
         v.cursor_down();
-        assert_eq!(v.index(), 22);
+        assert_eq!(v.cursor.get_index(), 22);
         v.cursor_down();
-        assert_eq!(v.index(), 26);
+        assert_eq!(v.cursor.get_index(), 26);
         v.cursor_down();
-        assert_eq!(v.index(), 30);
+        assert_eq!(v.cursor.get_index(), 37);
         v.cursor_down();
-        assert_eq!(v.index(), 30);
+        assert_eq!(v.cursor.get_index(), 37);
     }
     #[test]
     fn cursor_left() {
         let b = Rc::new(RefCell::new(Buffer::from_str("text\nhello\n")));
         let mut v = View::new(b, GEO);
         v.cursor_left();
-        assert_eq!(v.index(), 0);
+        assert_eq!(v.cursor.get_index(), 0);
 
-        v.set_index(5);
+        v.cursor.set_index(5);
         v.cursor_left();
-        assert_eq!(v.index(), 4);
+        assert_eq!(v.cursor.get_index(), 4);
 
-        v.set_index(2);
+        v.cursor.set_index(2);
         v.cursor_left();
-        assert_eq!(v.index(), 1);
+        assert_eq!(v.cursor.get_index(), 1);
 
-        v.set_index(6);
+        v.cursor.set_index(6);
         v.cursor_left();
-        assert_eq!(v.index(), 5);
+        assert_eq!(v.cursor.get_index(), 5);
     }
     #[test]
     fn cursor_right() {
         let b = Rc::new(RefCell::new(Buffer::from_str("tt\nh\n")));
         let mut v = View::new(b, GEO);
         v.cursor_right();
-        assert_eq!(v.index(), 1);
+        assert_eq!(v.cursor.get_index(), 1);
         v.cursor_right();
-        assert_eq!(v.index(), 2);
+        assert_eq!(v.cursor.get_index(), 2);
         v.cursor_right();
-        assert_eq!(v.index(), 3);
+        assert_eq!(v.cursor.get_index(), 3);
         v.cursor_right();
-        assert_eq!(v.index(), 4);
+        assert_eq!(v.cursor.get_index(), 4);
         v.cursor_right();
-        assert_eq!(v.index(), 5);
+        assert_eq!(v.cursor.get_index(), 5);
         v.cursor_right();
-        assert_eq!(v.index(), 5);
+        assert_eq!(v.cursor.get_index(), 5);
     }
     #[test]
     fn backspace() {
@@ -977,7 +1001,7 @@ mod tests {
         let mut v = View::new(b, GEO);
         v.backspace();
         assert_eq!(v.to_string(), "hello");
-        v.set_index(2);
+        v.cursor.set_index(2);
         v.backspace();
         assert_eq!(v.to_string(), "hllo");
     }
@@ -987,7 +1011,7 @@ mod tests {
         let mut v = View::new(b, GEO);
         v.delete_at_cursor();
         assert_eq!(v.to_string(), "ello");
-        v.set_index(3);
+        v.cursor.set_index(3);
         v.delete_at_cursor();
         assert_eq!(v.to_string(), "ell");
         v.delete_at_cursor();
