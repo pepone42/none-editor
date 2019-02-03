@@ -1,8 +1,11 @@
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
+use crate::nanovg::Canvas;
 
 #[derive(Debug,Clone)]
 struct Node {
+    x: u32,
+    y: u32,
     w: u32,
     h: u32,
     name: String,
@@ -13,10 +16,12 @@ struct Node {
 struct Widget(Rc<RefCell<Node>>);
 
 impl Widget {
-    pub fn new<S: Into<String>>(name: S, w: u32, h: u32, parent: Option<Widget>) -> Self {
+    pub fn new<S: Into<String>>(name: S, x: u32, y: u32, w: u32, h: u32, parent: Option<Widget>) -> Self {
         let p = parent.clone();
         let w = Rc::new(RefCell::new(Node {
             name: name.into(),
+            x,
+            y,
             w,
             h,
             parent: parent.map(|p| Rc::downgrade(&p.0)),
@@ -29,12 +34,41 @@ impl Widget {
     }
 }
 
+pub trait Gadget {
+    fn get_parent(&self) -> Option<Weak<RefCell<Self>>>;
+    fn get_childs(&self) -> &[Rc<RefCell<Self>>];
+    fn set_geometry(&mut self, x: u32, y: u32, w: u32, h: u32);
+    fn get_geometry(&self) -> (u32,u32,u32,u32);
+    fn draw(&mut self,canvas: &mut Canvas);
+    fn click(&mut self, x:u32, y:u32) {
+        for gadget in self.get_childs() {
+            let geometry = self.get_geometry();
+            if x >geometry.0 && y >geometry.1 && x<geometry.0 + geometry.2  && y<geometry.1 + geometry.3  {
+                gadget.borrow_mut().click(x,y);
+            }
+        }
+    }
+}
+
+struct Button {
+    x: u32,y: u32, w:u32, h: u32,
+    text: String,
+    click: Option<fn (x: u32, y: u32) -> bool>
+}
+
+
 #[cfg(test)]
 mod tests {
     use crate::widget::*;
     #[test]
     fn new_widget() {
-        let root = Widget::new("root", 100, 100, None);
-        let child = Widget::new("child", 100, 100, Some(root));
+        let root = Widget::new("root", 0, 0, 100, 100, None);
+        let child = Widget::new("child", 0, 0, 100, 100, Some(root));
+
+        let button = Button {
+            x: 0, y: 0, w: 100, h:10,
+            text: "Click me".to_owned(),
+            click: Some(|x,y| {println!("clicked at {} {}",x,y); true}),
+        };
     }
 }

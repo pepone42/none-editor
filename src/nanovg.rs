@@ -13,6 +13,7 @@ pub struct MonoFontMetrics {
 #[derive(Debug)]
 pub enum DisplayList {
     Move(f32, f32),
+    Translate(f32, f32),
     Color(nanovg::Color),
     Char(char),
     Rect(f32, f32),
@@ -52,8 +53,20 @@ impl Canvas {
         self.cmdlist.push(DisplayList::Char(c));
     }
 
+    /// Draw a string
+    pub fn draw_str(&mut self, s: &str) {
+        for c in s.chars() {
+            self.draw_char(c);
+        }
+    }
+
     /// move the pointer to x,y
     pub fn move_to(&mut self, x: f32, y: f32) {
+        self.cmdlist.push(DisplayList::Move(x, y));
+    }
+
+    /// translate the cursor
+    pub fn translate(&mut self, x: f32, y: f32) {
         self.cmdlist.push(DisplayList::Move(x, y));
     }
 }
@@ -165,6 +178,10 @@ impl System {
                     DisplayList::Move(to_x, to_y) => {
                         x = to_x;
                         y = to_y
+                    }
+                    DisplayList::Translate(dx,dy)  => {
+                        x += dx;
+                        y += dy;
                     }
                     DisplayList::Rect(w, h) => {
                         frame.path(

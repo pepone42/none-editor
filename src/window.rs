@@ -1,3 +1,4 @@
+use std::sync::RwLock;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::Path;
@@ -12,6 +13,7 @@ use crate::keybinding;
 use crate::keybinding::KeyBinding;
 use crate::nanovg::Canvas;
 use crate::view::{Direction, View};
+use nanovg::Color;
 
 use crate::styling::STYLE;
 
@@ -25,11 +27,40 @@ pub struct Geometry {
     pub font_advance: f32,
 }
 
+pub struct StatusBar {
+    geometry: Geometry,
+    left: HashMap<String,String>,
+    right: HashMap<String,String>,
+}
+
+impl StatusBar {
+    pub fn new(geometry: Geometry) -> Self {
+        StatusBar { geometry, left: HashMap::new(), right: HashMap::new() }
+    }
+    pub fn draw(&self, canvas: &mut Canvas) {
+        let bg_color = STYLE.theme.settings.foreground.unwrap_or(highlighting::Color::WHITE);
+        let fg_color = STYLE.theme.settings.background.unwrap_or(highlighting::Color::BLACK);
+        canvas.set_color(Color::from_rgb(bg_color.r, bg_color.g, bg_color.b));
+
+        canvas.move_to(self.geometry.x, self.geometry.y);
+        canvas.draw_rect(self.geometry.w, self.geometry.h);
+        canvas.set_color(Color::from_rgb(fg_color.r, fg_color.g, fg_color.b));
+
+        canvas.move_to(self.geometry.x, self.geometry.y + self.geometry.h - 1.0);
+        for info in  self.left.values() {
+            canvas.draw_str(info);
+            canvas.draw_str("  ");
+        }
+        
+    }
+}
+
 pub struct EditorWindow<'v> {
     views: Vec<View<'v>>,
     buffers: Vec<Rc<RefCell<Buffer>>>,
     geometry: Geometry,
     current_view: usize,
+    statusbar: StatusBar,
 }
 
 pub trait WindowCmd {
@@ -39,7 +70,7 @@ pub trait WindowCmd {
     fn run(&mut self, _: &mut EditorWindow<'_>);
 }
 
-const FONT_SIZE: f32 = 16.0;
+const FONT_SIZE: f32 = 14.0;
 
 impl<'v> EditorWindow<'v> {
     pub fn new<P: AsRef<Path>>(geometry: Geometry, file: Option<P>) -> Self {
@@ -50,11 +81,15 @@ impl<'v> EditorWindow<'v> {
     fn init(geometry: Geometry) -> Self {
         let views = Vec::new();
         let buffers = Vec::new();
+        let mut statusbar = StatusBar::new(geometry);
+        statusbar.geometry.h = geometry.font_height;
+        statusbar.geometry.y = geometry.h - geometry.font_height;
         EditorWindow {
             views,
             buffers,
             geometry,
             current_view: 0,
+            statusbar,
         }
     }
 
@@ -81,36 +116,21 @@ impl<'v> EditorWindow<'v> {
         self.current_view = viewid;
     }
 
-    fn resize(&mut self, width: f32, height: f32) {
-        self.geometry.w = width;
-        self.geometry.h = height;
-        let mut geometry = self.geometry;
-        //geometry.h -= 15; // footer TODO calculate it
+    fn resize(&mut self, x: f32, y: f32, w: f32, h: f32) {
+        self.geometry.w = w;
+        self.geometry.h = h - self.geometry.font_height;
+        self.statusbar.geometry.y = self.geometry.h;
+        self.statusbar.geometry.w = w;
+        self.relayout();
+    }
+    fn relayout(&mut self) {
         for i in 0..self.views.len() {
-            self.views[i].relayout(geometry);
+            self.views[i].relayout(self.geometry);
         }
     }
     fn draw(&mut self, canvas: &mut Canvas) {
-        // screen.set_font("gui");
-
-        // let footer_height = screen.get_font_metrics("gui").line_spacing;
-        // let fg = STYLE.theme.settings.foreground.unwrap_or(highlighting::Color::BLACK);
-        // let bg = STYLE.theme.settings.background.unwrap_or(highlighting::Color::WHITE);
-        // screen.set_color(Color::RGB(fg.r, fg.g, fg.b));
-        // screen.move_to(0, self.geometry.h as i32 - footer_height);
-        // screen.draw_rect(self.geometry.w as _, footer_height as _);
-        // screen.set_color(Color::RGB(bg.r, bg.g, bg.b));
-
-        // let (line, col) = self.get_current_view().cursor_as_point();
-        // screen.draw_str(&format!(
-        //     "({},{})    {}    {}",
-        //     line,
-        //     col,
-        //     self.get_current_view().get_syntax(),
-        //     self.get_current_view().get_encoding()
-        // ));
-
         self.get_current_view().draw(canvas);
+        self.statusbar.draw(canvas);
     }
 }
 
@@ -123,17 +143,15 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
     // create window. TODO: passing font_height as parameter feel off
     let font_height = system_window.canvas.font_metrics.line_height;
     let font_advance = system_window.canvas.font_metrics.advance;
-    let mut win = EditorWindow::new(
-        Geometry {
-            x: 0.0,
-            y: 0.0,
-            w: width,
-            h: height,
-            font_height: font_height,
-            font_advance: font_advance,
-        },
-        file,
-    );
+
+    let mut win = EditorWindow::new(Geometry {
+        x: 0.0,
+        y: 0.0,
+        w: width,
+        h: height,
+        font_height: font_height,
+        font_advance: font_advance,
+    }, file);
 
     // create view and windows cmd binding
     let mut view_cmd = commands::view::get_all();
@@ -152,7 +170,7 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
     }
 
     // main loop
-    #[derive(Debug,Clone,Copy,PartialEq,Eq)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     enum MouseState {
         Clicked,
         DoubleClicked,
@@ -269,7 +287,7 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
                 .resize(size.to_physical(system_window.hidpi_factor()));
             width = system_window.log_width() as _;
             height = system_window.log_height() as _;
-            win.resize(width as _, height as _);
+            win.resize(0.0,0.0,width,height);
             redraw = true;
         }
 
