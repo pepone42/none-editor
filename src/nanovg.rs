@@ -85,9 +85,11 @@ impl System {
         let window = glutin::WindowBuilder::new()
             .with_title(title)
             .with_dimensions(glutin::dpi::LogicalSize::new(width as _, height as _));
+        
         let context = glutin::ContextBuilder::new();//.with_vsync(true).with_srgb(true);
         let window = glutin::GlWindow::new(window, context, &events_loop).unwrap();
-
+        window.set_cursor(glutin::MouseCursor::Default);
+        
         unsafe {
             window.make_current().unwrap();
             gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
