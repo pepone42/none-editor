@@ -1,4 +1,3 @@
-use std::sync::RwLock;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::Path;
@@ -29,15 +28,13 @@ pub struct Geometry {
 
 pub struct StatusBar {
     geometry: Geometry,
-    left: HashMap<String,String>,
-    right: HashMap<String,String>,
 }
 
 impl StatusBar {
     pub fn new(geometry: Geometry) -> Self {
-        StatusBar { geometry, left: HashMap::new(), right: HashMap::new() }
+        StatusBar { geometry }
     }
-    pub fn draw(&self, canvas: &mut Canvas) {
+    pub fn draw(&self, canvas: &mut Canvas, line: usize, col: usize, filename: &str, encoding: &str, syntax: &str, is_dirty: bool) {
         let bg_color = STYLE.theme.settings.foreground.unwrap_or(highlighting::Color::WHITE);
         let fg_color = STYLE.theme.settings.background.unwrap_or(highlighting::Color::BLACK);
         canvas.set_color(Color::from_rgb(bg_color.r, bg_color.g, bg_color.b));
@@ -47,11 +44,8 @@ impl StatusBar {
         canvas.set_color(Color::from_rgb(fg_color.r, fg_color.g, fg_color.b));
 
         canvas.move_to(self.geometry.x, self.geometry.y + self.geometry.h - 1.0);
-        for info in  self.left.values() {
-            canvas.draw_str(info);
-            canvas.draw_str("  ");
-        }
-        
+
+        canvas.draw_str(&format! {"{}{} | {} | {} | ({},{})",filename,if is_dirty {"*"} else {""}, syntax, encoding, line, col});
     }
 }
 
@@ -129,8 +123,17 @@ impl<'v> EditorWindow<'v> {
         }
     }
     fn draw(&mut self, canvas: &mut Canvas) {
-        self.get_current_view().draw(canvas);
-        self.statusbar.draw(canvas);
+        let v = self.get_current_view();
+        v.draw(canvas);
+        self.statusbar.draw(
+            canvas,
+            v.line_idx(),
+            v.col_idx(),
+            v.get_name(),
+            v.get_encoding(),
+            v.get_syntax(),
+            v.is_dirty(),
+        );
     }
 }
 
@@ -144,14 +147,17 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
     let font_height = system_window.canvas.font_metrics.line_height;
     let font_advance = system_window.canvas.font_metrics.advance;
 
-    let mut win = EditorWindow::new(Geometry {
-        x: 0.0,
-        y: 0.0,
-        w: width,
-        h: height,
-        font_height: font_height,
-        font_advance: font_advance,
-    }, file);
+    let mut win = EditorWindow::new(
+        Geometry {
+            x: 0.0,
+            y: 0.0,
+            w: width,
+            h: height,
+            font_height: font_height,
+            font_advance: font_advance,
+        },
+        file,
+    );
 
     // create view and windows cmd binding
     let mut view_cmd = commands::view::get_all();
@@ -287,7 +293,7 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
                 .resize(size.to_physical(system_window.hidpi_factor()));
             width = system_window.log_width() as _;
             height = system_window.log_height() as _;
-            win.resize(0.0,0.0,width,height);
+            win.resize(0.0, 0.0, width, height);
             redraw = true;
         }
 

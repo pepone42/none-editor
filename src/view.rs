@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::io;
 use std::ops::Range;
 use std::rc::Rc;
+use std::path::Path;
 
 use crate::styling::SYNTAXSET;
 
@@ -199,6 +200,7 @@ pub struct View<'a> {
     geometry: Geometry,
     viewport: Viewport,
     styling: Option<StylingCache<'a>>,
+    name: String,
 }
 
 impl<'a> View<'a> {
@@ -213,12 +215,25 @@ impl<'a> View<'a> {
             geometry,
             viewport: Viewport::default(),
             styling: None,
+            name: String::new(), // TODO: useless string allocation
         };
+        v.update_name();
         v.relayout(geometry);
         v.detect_linefeed();
         v
     }
 
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+    fn update_name(&mut self) {
+        self.name = {
+            match self.buffer.borrow().get_filename() {
+                None => "untilted".to_owned(),
+                Some(path) => path.file_name().unwrap().to_string_lossy().into_owned(),
+            }
+        };
+    }
     /// save the underlying buffer to disk
     pub fn save(&mut self) -> io::Result<()> {
         {
@@ -232,6 +247,7 @@ impl<'a> View<'a> {
                 }
             }
         }
+        self.update_name();
         self.detect_syntax();
         Ok(())
     }
@@ -290,6 +306,9 @@ impl<'a> View<'a> {
             None => &"Plain text",
             Some(s) => &s.syntax.name,
         }
+    }
+    pub fn is_dirty(&self) -> bool {
+        self.buffer.borrow().is_dirty()
     }
 
     /// get the buffer encoding

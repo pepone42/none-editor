@@ -94,6 +94,10 @@ impl Buffer {
         }
     }
 
+    pub fn is_dirty(&self) -> bool {
+        self.is_dirty
+    }
+
     /// save the current buffer to disk
     pub fn save(&mut self) -> io::Result<()> {
         if let Some(filename) = &self.filename {
