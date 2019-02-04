@@ -34,7 +34,16 @@ impl StatusBar {
     pub fn new(geometry: Geometry) -> Self {
         StatusBar { geometry }
     }
-    pub fn draw(&self, canvas: &mut Canvas, line: usize, col: usize, filename: &str, encoding: &str, syntax: &str, is_dirty: bool) {
+    pub fn draw(
+        &self,
+        canvas: &mut Canvas,
+        line: usize,
+        col: usize,
+        filename: &str,
+        encoding: &str,
+        syntax: &str,
+        is_dirty: bool,
+    ) {
         let bg_color = STYLE.theme.settings.foreground.unwrap_or(highlighting::Color::WHITE);
         let fg_color = STYLE.theme.settings.background.unwrap_or(highlighting::Color::BLACK);
         canvas.set_color(Color::from_rgb(bg_color.r, bg_color.g, bg_color.b));
@@ -45,7 +54,9 @@ impl StatusBar {
 
         canvas.move_to(self.geometry.x, self.geometry.y + self.geometry.h - 1.0);
 
-        canvas.draw_str(&format! {"{}{} | {} | {} | ({},{})",filename,if is_dirty {"*"} else {""}, syntax, encoding, line, col});
+        canvas.draw_str(
+            &format! {"{}{} | {} | {} | ({},{})",filename,if is_dirty {"*"} else {""}, syntax, encoding, line, col},
+        );
     }
 }
 
@@ -100,10 +111,7 @@ impl<'v> EditorWindow<'v> {
             Some(file) => Rc::new(RefCell::new(Buffer::from_file(file.as_ref()).expect("File not found"))),
         };
         self.buffers.push(b.clone());
-        let mut geometry = self.geometry;
-        //geometry.h -= 15; // footer TODO calculate it
-        let mut v = View::new(b.clone(), geometry);
-        v.detect_syntax();
+        let mut v = View::new(b.clone(), self.geometry);
 
         let viewid = self.views.len();
         self.views.push(v);

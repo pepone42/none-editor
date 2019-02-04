@@ -1,20 +1,20 @@
 use std::cell::RefCell;
 use std::io;
 use std::ops::Range;
-use std::rc::Rc;
 use std::path::Path;
+use std::rc::Rc;
 
 use crate::styling::SYNTAXSET;
 
 use syntect::highlighting;
 
 use crate::buffer::Buffer;
+use crate::cursor::Cursor;
 use crate::keybinding::KeyBinding;
 use crate::styling::StylingCache;
 use crate::styling::STYLE;
 use crate::window::Geometry;
 use crate::SETTINGS;
-use crate::cursor::Cursor;
 
 use crate::nanovg::Canvas;
 use nanovg::Color;
@@ -220,6 +220,7 @@ impl<'a> View<'a> {
         v.update_name();
         v.relayout(geometry);
         v.detect_linefeed();
+        v.detect_syntax();
         v
     }
 
@@ -426,7 +427,9 @@ impl<'a> View<'a> {
         } else if self.cursor.get_index() < self.buffer.borrow().len_chars() {
             let curs = self.cursor.get_index();
             self.cursor_right();
-            self.buffer.borrow_mut().remove(self.cursor.get_previous_index()..self.cursor.get_index());
+            self.buffer
+                .borrow_mut()
+                .remove(self.cursor.get_previous_index()..self.cursor.get_index());
             self.cursor.set_index(curs);
         }
         self.clear_selection();
@@ -625,12 +628,11 @@ impl<'a> View<'a> {
         let mut start = self.buffer.borrow().line_to_char(line);
         let mut end = start;
         for c in self.buffer.borrow().chars_on_line(line) {
-
             match c {
                 ' ' | '`' | '~' | '!' | '@' | '#' | '$' | '%' | '^' | '&' | '*' | '(' | ')' | '-' | '=' | '+' | '['
                 | '{' | ']' | '}' | '\\' | '|' | ';' | ':' | '\'' | '"' | ',' | '.' | '<' | '>' | '/' | '?' => {
                     if start <= self.cursor.get_index() && self.cursor.get_index() < end {
-                        self.selection = Some(Selection{start,end});
+                        self.selection = Some(Selection { start, end });
                         return;
                     }
                     start = end + 1;
@@ -853,7 +855,10 @@ impl<'a> View<'a> {
             selection.expand(self.cursor.get_index());
             Some(selection)
         } else {
-            Some(Selection::new(self.cursor.get_previous_index(), self.cursor.get_index()))
+            Some(Selection::new(
+                self.cursor.get_previous_index(),
+                self.cursor.get_index(),
+            ))
         }
     }
 }
