@@ -496,49 +496,15 @@ impl<'a> View<'a> {
     }
 
     fn cursor_up(&mut self) {
-        // let b = self.buffer.borrow();
-        // let (mut l, c) = b.index_to_point(self.cursor.get_index());
-        // if l > 0 {
-        //     l -= 1
-        // };
-        // self.cursor.set_index(b.point_to_index(l, c));
         self.cursor.up(1);
     }
     fn cursor_down(&mut self) {
-        // let b = self.buffer.borrow();
-        // let (mut l, c) = b.index_to_point(self.cursor.get_index());
-        // if l < b.len_lines() - 1 {
-        //     l += 1
-        // };
-        // self.cursor.set_index(b.point_to_index(l, c));
         self.cursor.down(1);
     }
     fn cursor_left(&mut self) {
-        // let b = self.buffer.borrow();
-        // if self.cursor.index > 0 {
-        //     let line_idx = b.char_to_line(self.cursor.index);
-        //     let line_idx_char = b.line_to_char(line_idx);
-        //     // handle crlf and lf
-        //     if self.cursor.index == line_idx_char {
-        //         self.cursor.set(b.line_to_last_char(line_idx - 1));
-        //     } else {
-        //         self.cursor -= 1;
-        //     }
-        // }
         self.cursor.left();
     }
     fn cursor_right(&mut self) {
-        // let b = self.buffer.borrow();
-        // if self.cursor.index < b.len_chars() {
-        //     let line_idx = b.char_to_line(self.cursor.index);
-        //     let line_idx_char = b.line_to_last_char(line_idx);
-        //     // handle crlf and lf
-        //     if self.cursor.index == line_idx_char {
-        //         self.cursor.set(b.line_to_char(line_idx + 1));
-        //     } else {
-        //         self.cursor += 1;
-        //     }
-        // }
         self.cursor.right();
     }
 
