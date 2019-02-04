@@ -204,6 +204,7 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
 
             if let Event::WindowEvent { event, .. } = event {
                 match event {
+                    Refresh => redraw = true,
                     CloseRequested => running = false,
                     Resized(size) => {
                         resized = Some(size);
