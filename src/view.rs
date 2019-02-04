@@ -605,8 +605,15 @@ impl<'a> View<'a> {
 
     /// Set the cursor to the given pixel position
     pub fn click(&mut self, x: i32, y: i32, expand_selection: bool) {
-        let col = x / self.geometry.font_advance as i32 + self.viewport.col_start as i32;
-        let line = y / self.geometry.font_height as i32 + self.viewport.line_start as i32;
+        let mut col = x / self.geometry.font_advance as i32 + self.viewport.col_start as i32;
+        let mut line = y / self.geometry.font_height as i32 + self.viewport.line_start as i32;
+
+        if col < 0 {
+            col = 0;
+        }
+        if line < 0 {
+            line = 0;
+        }
 
         let idx = self.buffer.borrow().point_to_index(line as _, col as _);
         self.cursor.set_index(idx);
@@ -615,6 +622,7 @@ impl<'a> View<'a> {
         } else {
             self.clear_selection();
         }
+        self.focus_on_cursor();
     }
 
     /// select the word when double clicked
