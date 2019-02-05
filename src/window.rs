@@ -10,20 +10,18 @@ use crate::buffer::Buffer;
 use crate::commands;
 use crate::keybinding;
 use crate::keybinding::KeyBinding;
-use crate::nanovg::Canvas;
+use crate::system::Canvas;
 use crate::view::{Direction, View};
 use nanovg::Color;
 
 use crate::styling::STYLE;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct Geometry {
     pub x: f32,
     pub y: f32,
     pub w: f32,
     pub h: f32,
-    pub font_height: f32,
-    pub font_advance: f32,
 }
 
 pub struct StatusBar {
@@ -31,8 +29,14 @@ pub struct StatusBar {
 }
 
 impl StatusBar {
-    pub fn new(geometry: Geometry) -> Self {
-        StatusBar { geometry }
+    pub fn new() -> Self {
+        StatusBar { geometry: Default::default() }
+    }
+    pub fn relayout(&mut self, geometry: Geometry, canvas: &Canvas) {
+        self.geometry = geometry;
+    }
+    pub fn min_size(&self, canvas: &Canvas) -> (f32, f32) {
+        (10.0, canvas.fonts["mono"].line_height)
     }
     pub fn draw(
         &self,
@@ -86,13 +90,11 @@ impl<'v> EditorWindow<'v> {
     fn init(geometry: Geometry) -> Self {
         let views = Vec::new();
         let buffers = Vec::new();
-        let mut statusbar = StatusBar::new(geometry);
-        statusbar.geometry.h = geometry.font_height;
-        statusbar.geometry.y = geometry.h - geometry.font_height;
+        let mut statusbar = StatusBar::new();
         EditorWindow {
             views,
             buffers,
-            geometry,
+            geometry: Default::default(),
             current_view: 0,
             statusbar,
         }
@@ -111,23 +113,36 @@ impl<'v> EditorWindow<'v> {
             Some(file) => Rc::new(RefCell::new(Buffer::from_file(file.as_ref()).expect("File not found"))),
         };
         self.buffers.push(b.clone());
-        let mut v = View::new(b.clone(), self.geometry);
+        let mut v = View::new(b.clone());
 
         let viewid = self.views.len();
         self.views.push(v);
         self.current_view = viewid;
     }
 
-    fn resize(&mut self, x: f32, y: f32, w: f32, h: f32) {
-        self.geometry.w = w;
-        self.geometry.h = h - self.geometry.font_height;
-        self.statusbar.geometry.y = self.geometry.h;
-        self.statusbar.geometry.w = w;
-        self.relayout();
-    }
-    fn relayout(&mut self) {
+    // fn resize(&mut self, x: f32, y: f32, w: f32, h: f32) {
+    //     self.geometry.w = w;
+    //     self.geometry.h = h - self.geometry.font_height;
+    //     self.statusbar.geometry.y = self.geometry.h;
+    //     self.statusbar.geometry.w = w;
+    //     self.relayout();
+    // }
+    fn relayout(&mut self, geometry: Geometry, canvas: &Canvas) {
+        self.geometry = geometry;
+
+        let status_height = self.statusbar.min_size(canvas).1;
+        self.statusbar.relayout(
+            Geometry {
+                x: 0.0,
+                y: self.geometry.h - status_height,
+                w: self.geometry.w,
+                h: status_height,
+            },
+            canvas,
+        );
         for i in 0..self.views.len() {
-            self.views[i].relayout(self.geometry);
+            let g = Geometry {x:0.0,y:0.0,w:self.geometry.w,h:self.geometry.h - status_height};
+            self.views[i].relayout(g, canvas);
         }
     }
     fn draw(&mut self, canvas: &mut Canvas) {
@@ -149,11 +164,7 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
     let mut width = super::SETTINGS.read().unwrap().get::<f32>("width").unwrap();
     let mut height = super::SETTINGS.read().unwrap().get::<f32>("height").unwrap();
 
-    let mut system_window = crate::nanovg::System::new("None", width, height, FONT_SIZE);
-
-    // create window. TODO: passing font_height as parameter feel off
-    let font_height = system_window.canvas.font_metrics.line_height;
-    let font_advance = system_window.canvas.font_metrics.advance;
+    let mut system_window = crate::system::System::new("None", width, height, FONT_SIZE);
 
     let mut win = EditorWindow::new(
         Geometry {
@@ -161,8 +172,6 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
             y: 0.0,
             w: width,
             h: height,
-            font_height: font_height,
-            font_advance: font_advance,
         },
         file,
     );
@@ -302,12 +311,15 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
                 .resize(size.to_physical(system_window.hidpi_factor()));
             width = system_window.log_width() as _;
             height = system_window.log_height() as _;
-            win.resize(0.0, 0.0, width, height);
+            win.relayout(Geometry{x:0.0,y:0.0,w:width,h:height}, &system_window.canvas);
             redraw = true;
         }
 
         // redraw only when needed
         if redraw {
+            // ugly
+            win.relayout(win.geometry,&system_window.canvas);
+
             // clear
             let bg = STYLE.theme.settings.background.unwrap_or(highlighting::Color::BLACK);
 

@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
-use crate::nanovg::Canvas;
+use crate::system::Canvas;
 
 #[derive(Debug,Clone)]
 struct Node {

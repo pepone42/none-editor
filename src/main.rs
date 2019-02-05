@@ -4,7 +4,7 @@ mod keybinding;
 mod styling;
 mod view;
 mod window;
-mod nanovg;
+mod system;
 mod cursor;
 mod widget;
 

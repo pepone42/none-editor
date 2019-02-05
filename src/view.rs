@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 use std::io;
 use std::ops::Range;
-use std::path::Path;
 use std::rc::Rc;
 
 use crate::styling::SYNTAXSET;
@@ -16,7 +15,7 @@ use crate::styling::STYLE;
 use crate::window::Geometry;
 use crate::SETTINGS;
 
-use crate::nanovg::Canvas;
+use crate::system::{Canvas,Font,FontType};
 use nanovg::Color;
 
 #[derive(Debug, Clone, Copy)]
@@ -133,42 +132,23 @@ impl Into<Range<usize>> for Selection {
     }
 }
 
-// #[derive(Debug, Clone, Copy, Default)]
-// struct Cursor {
-//     index: usize,
-//     previous: usize,
-// }
+#[derive(Debug, Clone, Copy, Default)]
+struct CharMetrics {
+    advance: f32,
+    height: f32,
+}
 
-// impl Cursor {
-//     fn set(&mut self, index: usize) {
-//         self.previous = self.index;
-//         self.index = index;
-//     }
-// }
-
-// impl Add<usize> for Cursor {
-//     type Output = Cursor;
-//     fn add(self, other: usize) -> Cursor {
-//         Cursor {
-//             index: self.index + other,
-//             previous: self.index,
-//         }
-//     }
-// }
-
-// impl AddAssign<usize> for Cursor {
-//     fn add_assign(&mut self, other: usize) {
-//         self.previous = self.index;
-//         self.index = self.index + other;
-//     }
-// }
-
-// impl SubAssign<usize> for Cursor {
-//     fn sub_assign(&mut self, other: usize) {
-//         self.previous = self.index;
-//         self.index = self.index - other;
-//     }
-// }
+impl From<Font> for CharMetrics {
+    fn from(font: Font) -> Self {
+        let advance =
+        if let FontType::MonoSpaced(advance) = font.kind {
+            advance
+        } else {
+            panic!("not supported");
+        };
+        CharMetrics {advance, height: font.line_height}
+    }
+}
 
 #[derive(Debug, Clone, Copy, Default)]
 struct Viewport {
@@ -199,26 +179,27 @@ pub struct View<'a> {
     linefeed: LineFeed,
     geometry: Geometry,
     viewport: Viewport,
+    char_metrics: CharMetrics,
     styling: Option<StylingCache<'a>>,
     name: String,
 }
 
 impl<'a> View<'a> {
     /// Create a new View for the given buffer
-    pub fn new(buffer: Rc<RefCell<Buffer>>, geometry: Geometry) -> Self {
+    pub fn new(buffer: Rc<RefCell<Buffer>>) -> Self {
         let mut v = View {
             buffer: buffer.clone(),
             cursor: Cursor::new(buffer.clone()),
             selection: None,
             undo_stack: UndoStack::new(),
             linefeed: LineFeed::LF,
-            geometry,
-            viewport: Viewport::default(),
+            geometry: Default::default(),
+            viewport: Default::default(),
+            char_metrics: Default::default(),
             styling: None,
             name: String::new(), // TODO: useless string allocation
         };
         v.update_name();
-        v.relayout(geometry);
         v.detect_linefeed();
         v.detect_syntax();
         v
@@ -259,10 +240,11 @@ impl<'a> View<'a> {
     }
 
     /// resize the view and update the viewport accordingly
-    pub fn relayout(&mut self, geometry: Geometry) {
+    pub fn relayout(&mut self, geometry: Geometry, canvas: &Canvas) {
         self.geometry = geometry;
-        self.viewport.heigth = (self.geometry.h / self.geometry.font_height) as usize - 1;
-        self.viewport.width = (self.geometry.w / self.geometry.font_advance) as usize - 1;
+        self.char_metrics = CharMetrics::from(canvas.fonts["mono"]);
+        self.viewport.heigth = (self.geometry.h / self.char_metrics.height) as usize - 1;
+        self.viewport.width = (self.geometry.w / self.char_metrics.advance) as usize - 1;
         let end = self.viewport.line_end();
         self.expand_styling_cache(end);
     }
@@ -571,8 +553,8 @@ impl<'a> View<'a> {
 
     /// Set the cursor to the given pixel position
     pub fn click(&mut self, x: i32, y: i32, expand_selection: bool) {
-        let mut col = x / self.geometry.font_advance as i32 + self.viewport.col_start as i32;
-        let mut line = y / self.geometry.font_height as i32 + self.viewport.line_start as i32;
+        let mut col = x / self.char_metrics.advance as i32 + self.viewport.col_start as i32;
+        let mut line = y / self.char_metrics.height as i32 + self.viewport.line_start as i32;
 
         if col < 0 {
             col = 0;
@@ -744,12 +726,12 @@ impl<'a> View<'a> {
 
     /// Draw the vew on the given screen
     pub fn draw(&self, canvas: &mut Canvas) {
-        let adv = self.geometry.font_advance;
-        let line_spacing = self.geometry.font_height;
+        let adv = self.char_metrics.advance;
+        let line_spacing = self.char_metrics.height;
         let mut y = line_spacing;
 
         let tabsize: i32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
-
+        
         let first_visible_line = self.viewport.line_start;
         let first_visible_col = self.viewport.col_start;
         let page_len = self.viewport.heigth;
@@ -776,7 +758,7 @@ impl<'a> View<'a> {
                     Some(sel) if sel.contains(idx) => {
                         let color = STYLE.theme.settings.selection.unwrap_or(highlighting::Color::WHITE);
                         canvas.set_color(Color::from_rgb(color.r, color.g, color.b));
-                        canvas.move_to(x as _, y - canvas.font_metrics.descender - line_spacing);
+                        canvas.move_to(x as _, y - canvas.fonts["mono"].descender - line_spacing);
                         canvas.draw_rect(adv as _, line_spacing as _);
                     }
                     _ => (),
@@ -813,7 +795,7 @@ impl<'a> View<'a> {
             col -= first_visible_col;
             canvas.move_to(
                 col as f32 * adv,
-                line as f32 * line_spacing - canvas.font_metrics.descender,
+                line as f32 * line_spacing - canvas.fonts["mono"].descender,
             );
             canvas.set_color(Color::from_rgb(fg.r, fg.g, fg.b));
             canvas.draw_rect(2.0, line_spacing as _);
@@ -848,28 +830,19 @@ pub trait ViewCmd {
 mod tests {
     use crate::buffer::Buffer;
     use crate::view::View;
-    use crate::window::Geometry;
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    const GEO: Geometry = Geometry {
-        x: 0.0,
-        y: 0.0,
-        w: 100.0,
-        h: 100.0,
-        font_advance: 10.0,
-        font_height: 10.0,
-    };
 
     #[test]
     fn new_view() {
         let b = Rc::new(RefCell::new(Buffer::new()));
-        let _v = View::new(b, GEO);
+        let _v = View::new(b);
     }
     #[test]
     fn insert() {
         let b = Rc::new(RefCell::new(Buffer::from_str("text")));
-        let mut v = View::new(b, GEO);
+        let mut v = View::new(b);
         v.insert_char('r');
         assert_eq!(v.to_string(), "rtext");
         v.insert_char('e');
@@ -883,8 +856,8 @@ mod tests {
     #[test]
     fn multiple_view() {
         let buf = Rc::new(RefCell::new(Buffer::from_str("text")));
-        let mut v1 = View::new(buf.clone(), GEO);
-        let mut v2 = View::new(buf.clone(), GEO);
+        let mut v1 = View::new(buf.clone());
+        let mut v2 = View::new(buf.clone());
         v1.insert_char('r');
         assert_eq!(v2.to_string(), "rtext");
         v2.insert_char('e');
@@ -894,7 +867,7 @@ mod tests {
     #[test]
     fn set_index_oob() {
         let b = Rc::new(RefCell::new(Buffer::from_str("text")));
-        let mut v = View::new(b, GEO);
+        let mut v = View::new(b);
         v.cursor.set_index(5);
         assert_eq!(v.cursor.get_index(), 4);
     }
@@ -902,7 +875,7 @@ mod tests {
     #[test]
     fn set_index() {
         let b = Rc::new(RefCell::new(Buffer::from_str("text\nplop")));
-        let mut v = View::new(b, GEO);
+        let mut v = View::new(b);
         v.cursor.set_index(4);
         assert_eq!(v.cursor.get_index(), 4);
         v.cursor.set_index(5);
@@ -914,7 +887,7 @@ mod tests {
         let b = Rc::new(RefCell::new(Buffer::from_str(
             "text\nhello\nme!\nan other very long line",
         )));
-        let mut v = View::new(b, GEO);
+        let mut v = View::new(b);
         v.cursor.set_index(11);
         v.cursor_up();
         assert_eq!(v.cursor.get_index(), 5);
@@ -937,7 +910,7 @@ mod tests {
         let b = Rc::new(RefCell::new(Buffer::from_str(
             "a long text line\nhello\nme!\nan other very long line",
         )));
-        let mut v = View::new(b, GEO);
+        let mut v = View::new(b);
         v.cursor_down();
         assert_eq!(v.cursor.get_index(), 17);
         v.cursor_down();
@@ -960,7 +933,7 @@ mod tests {
     #[test]
     fn cursor_left() {
         let b = Rc::new(RefCell::new(Buffer::from_str("text\nhello\n")));
-        let mut v = View::new(b, GEO);
+        let mut v = View::new(b);
         v.cursor_left();
         assert_eq!(v.cursor.get_index(), 0);
 
@@ -979,7 +952,7 @@ mod tests {
     #[test]
     fn cursor_right() {
         let b = Rc::new(RefCell::new(Buffer::from_str("tt\nh\n")));
-        let mut v = View::new(b, GEO);
+        let mut v = View::new(b);
         v.cursor_right();
         assert_eq!(v.cursor.get_index(), 1);
         v.cursor_right();
@@ -996,7 +969,7 @@ mod tests {
     #[test]
     fn backspace() {
         let b = Rc::new(RefCell::new(Buffer::from_str("hello")));
-        let mut v = View::new(b, GEO);
+        let mut v = View::new(b);
         v.backspace();
         assert_eq!(v.to_string(), "hello");
         v.cursor.set_index(2);
@@ -1006,7 +979,7 @@ mod tests {
     #[test]
     fn delete_at_cursor() {
         let b = Rc::new(RefCell::new(Buffer::from_str("hello")));
-        let mut v = View::new(b, GEO);
+        let mut v = View::new(b);
         v.delete_at_cursor();
         assert_eq!(v.to_string(), "ello");
         v.cursor.set_index(3);

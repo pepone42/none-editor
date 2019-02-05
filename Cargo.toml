@@ -30,3 +30,6 @@ features = ["gl3"]
 [dependencies.glutin]
 version = "0.19"
 features = ["serde"]
+
+[profile.release]
+debug = true
