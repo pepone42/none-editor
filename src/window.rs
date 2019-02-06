@@ -75,6 +75,7 @@ impl<'v> EditorWindow<'v> {
         //geometry.h -= 15; // footer TODO calculate it
         let mut v = View::new(b.clone(), geometry);
         v.detect_syntax();
+        println!("{:?}", v.detect_indentation());
 
         let viewid = self.views.len();
         self.views.push(v);
