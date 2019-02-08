@@ -27,7 +27,7 @@ impl Into<Index> for Point {
                 '\t' => {
                     col = ((col + tabsize) / tabsize) * tabsize;
                 }
-                '\0' => (),
+                '\r' | '\n' | '\0' => (),
                 // Bom hiding. TODO: rework
                 '\u{feff}' | '\u{fffe}' => (),
                 _ => {
@@ -57,7 +57,7 @@ impl Into<Point> for Index {
                 '\t' => {
                     col = ((col + tabsize) / tabsize) * tabsize;
                 }
-                '\0' => (),
+                '\r' | '\n' | '\0' => (),
                 // Bom hiding. TODO: rework
                 '\u{feff}' | '\u{fffe}' => (),
                 _ => {
@@ -95,19 +95,41 @@ impl Cursor {
         }
     }
 
+    fn line_last_col(&self, line: usize) -> usize {
+        let tabsize: usize = SETTINGS.read().unwrap().get("tabSize").unwrap();
+        let mut col: usize = 0;
+        //let line = self.buffer.borrow().char_to_line(line);
+        for c in self.buffer.borrow().chars_on_line(line) {
+            match c {
+                '\t' => {
+                    col = ((col + tabsize) / tabsize) * tabsize;
+                }
+                '\r' | '\n' | '\0' => (),
+                // Bom hiding. TODO: rework
+                '\u{feff}' | '\u{fffe}' => (),
+                _ => {
+                    col += 1;
+                }
+            }
+        }
+        col
+    }
+
     pub fn set_line(&mut self, line: usize) {
         use std::cmp::min;
         self.line = min(line, self.buffer.borrow().len_lines() - 1);
 
         // Update col if the virtual column index is too far
-        let line_len = self.buffer.borrow().line_len_no_eol(self.line);
-        if self.vcol > line_len {
-            self.col = line_len;
-        }
+        let line_last_col = self.line_last_col(self.line);
+        self.col = min(line_last_col,self.vcol);
 
         // Update index, and keep track of the last value;
-        let p = Point {line : self.line, col: self.col, buffer: self.buffer.clone()};
-        let idx : Index = p.into();
+        let p = Point {
+            line: self.line,
+            col: self.col,
+            buffer: self.buffer.clone(),
+        };
+        let idx: Index = p.into();
         self.previous_index = self.index;
         self.index = idx.index;
     }
@@ -122,8 +144,11 @@ impl Cursor {
         self.index = min(index, len);
 
         // Update line and column location
-        let i = Index { index: self.index, buffer: self.buffer.clone()};
-        let p : Point = i.into();
+        let i = Index {
+            index: self.index,
+            buffer: self.buffer.clone(),
+        };
+        let p: Point = i.into();
         self.line = p.line;
         self.col = p.col;
         self.vcol = p.col;
