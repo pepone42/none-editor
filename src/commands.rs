@@ -1,11 +1,10 @@
-use std::sync::Mutex;
-use lazy_static::lazy_static;
-use clipboard2::*;
 use crate::keybinding::KeyBinding;
 use crate::view::{Direction, View, ViewCmd};
 use crate::window::EditorWindow;
 use crate::window::WindowCmd;
-
+use clipboard2::*;
+use lazy_static::lazy_static;
+use std::sync::Mutex;
 
 struct GenericViewCommand {
     name: &'static str,
@@ -15,7 +14,12 @@ struct GenericViewCommand {
 }
 
 impl GenericViewCommand {
-    pub fn new(name: &'static str, desc: &'static str, keybinding: Vec<KeyBinding>, execute: fn(&mut View<'_>)) -> Self {
+    pub fn new(
+        name: &'static str,
+        desc: &'static str,
+        keybinding: Vec<KeyBinding>,
+        execute: fn(&mut View<'_>),
+    ) -> Self {
         GenericViewCommand {
             name,
             desc,
@@ -215,12 +219,9 @@ pub mod view {
             &["Delete"],
             |v| v.delete_at_cursor(),
         ));
-        v.push(GenericViewCommand::new_box(
-            "Up",
-            "Move cursor up",
-            &["Up"],
-            |v| v.move_cursor(Direction::Up, false),
-        ));
+        v.push(GenericViewCommand::new_box("Up", "Move cursor up", &["Up"], |v| {
+            v.move_cursor(Direction::Up, false)
+        }));
         v.push(GenericViewCommand::new_box(
             "Down",
             "Move cursor down",
@@ -299,8 +300,8 @@ pub mod view {
 
 pub mod window {
     use crate::commands::*;
-    use nfd;
     use crate::window::WindowCmd;
+    use nfd;
 
     pub fn get_all() -> Vec<Box<dyn WindowCmd>> {
         let mut v = Vec::<Box<dyn WindowCmd>>::new();

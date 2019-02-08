@@ -4,12 +4,12 @@ use glutin::GlContext;
 use nanovg;
 use std::collections::HashMap;
 
-#[derive(Debug,Copy,Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum FontType {
     MonoSpaced(f32),
     Proportional,
 }
-#[derive(Debug,Copy,Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Font {
     id: usize,
     pub kind: FontType,

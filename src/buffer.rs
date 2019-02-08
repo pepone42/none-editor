@@ -138,7 +138,7 @@ impl Buffer {
     }
 
     /// iterate over chars of the given line
-    pub fn chars_on_line(&self,line: usize) -> ropey::iter::Chars<'_> {
+    pub fn chars_on_line(&self, line: usize) -> ropey::iter::Chars<'_> {
         self.rope.line(line).chars()
     }
 
@@ -197,20 +197,6 @@ impl Buffer {
     pub fn line_len(&self, line_idx: usize) -> usize {
         self.rope.line(line_idx).len_chars()
     }
-    // /// convert an index to a point (line, column)
-    // pub fn index_to_point(&self, char_idx: usize) -> (usize, usize) {
-    //     let l = self.char_to_line(char_idx);
-    //     let c = char_idx - self.line_to_char(l);
-    //     (l, c)
-    // }
-    // /// Convert a point (line, column) to an index
-    // pub fn point_to_index(&self, line: usize, col: usize) -> usize {
-    //     use std::cmp::min;
-    //     let l = min(line, self.len_lines() - 1);
-
-    //     let c = min(col, self.line_len_no_eol(l));
-    //     self.line_to_char(l) + c
-    // }
 }
 
 #[cfg(test)]
@@ -248,28 +234,6 @@ mod tests {
         buf.remove(1..3);
         assert_eq!(buf.to_string(), "Hlo World");
     }
-    // #[test]
-    // fn index_to_point() {
-    //     let buf = Buffer::from_str("text\nplops\ntoto  ");
-    //     assert_eq!(buf.index_to_point(3), (0, 3));
-    //     assert_eq!(buf.index_to_point(4), (0, 4));
-    //     assert_eq!(buf.index_to_point(5), (1, 0));
-    //     assert_eq!(buf.index_to_point(12), (2, 1));
-    // }
-    // #[test]
-    // fn point_to_index() {
-    //     let buf = Buffer::from_str("text\nplops\ntoto  ");
-    //     // Normal case
-    //     assert_eq!(buf.point_to_index(0, 3), 3);
-    //     assert_eq!(buf.point_to_index(0, 4), 4);
-    //     assert_eq!(buf.point_to_index(1, 0), 5);
-    //     assert_eq!(buf.point_to_index(2, 1), 12);
-
-    //     // oob case
-    //     assert_eq!(buf.point_to_index(0, 5), 4); // col too far
-    //     assert_eq!(buf.point_to_index(4, 1), 12); // line too far
-    //     assert_eq!(buf.point_to_index(4, 6), 17); // line too far, EOF is treated like a char
-    // }
     #[test]
     fn line_to_last_char() {
         let buf = Buffer::from_str("text\nplops\ntoto  ");

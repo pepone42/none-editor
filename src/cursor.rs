@@ -121,7 +121,7 @@ impl Cursor {
 
         // Update col if the virtual column index is too far
         let line_last_col = self.line_last_col(self.line);
-        self.col = min(line_last_col,self.vcol);
+        self.col = min(line_last_col, self.vcol);
 
         // Update index, and keep track of the last value;
         let p = Point {

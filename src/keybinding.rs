@@ -198,7 +198,7 @@ impl<'a> From<&'a str> for KeyBinding {
                 "COPY" => keycode = Some(VirtualKeyCode::Copy),
                 "PASTE" => keycode = Some(VirtualKeyCode::Paste),
                 "CUT" => keycode = Some(VirtualKeyCode::Cut),
-                _ => unimplemented!("{}",arg),
+                _ => unimplemented!("{}", arg),
             }
         }
         KeyBinding::new(keycode.unwrap(), keymod)
@@ -213,7 +213,10 @@ mod test {
     use std::convert::From;
     #[test]
     fn from_str() {
-        assert_eq!(KeyBinding::from("Ctrl-C"), KeyBinding::new(VirtualKeyCode::C, Mod::CTRL));
+        assert_eq!(
+            KeyBinding::from("Ctrl-C"),
+            KeyBinding::new(VirtualKeyCode::C, Mod::CTRL)
+        );
         assert_eq!(
             KeyBinding::from("Ctrl-Shift-P"),
             KeyBinding::new(VirtualKeyCode::P, Mod::CTRL | Mod::SHIFT)

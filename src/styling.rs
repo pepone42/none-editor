@@ -1,5 +1,5 @@
-use lazy_static::lazy_static;
 use crate::buffer::Buffer;
+use lazy_static::lazy_static;
 use std::iter::FromIterator;
 use std::ops::Deref;
 use std::ops::Range;
@@ -124,7 +124,8 @@ impl<'a> StylingCache<'a> {
                 .unwrap_or(&(
                     ParseState::new(self.syntax),
                     HighlightState::new(&highlighter, ScopeStack::new()),
-                )).clone();
+                ))
+                .clone();
 
             let l = line.to_string();
             let v = state.0.parse_line(&l, &SYNTAXSET);
@@ -135,7 +136,8 @@ impl<'a> StylingCache<'a> {
                 .map(|x| StyleSpan {
                     style: x.0,
                     len: x.1.chars().count(),
-                }).collect();
+                })
+                .collect();
             self.result.push(r);
 
             self.state.push(state);

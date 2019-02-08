@@ -1,16 +1,16 @@
 mod buffer;
 mod commands;
+mod cursor;
 mod keybinding;
 mod styling;
-mod view;
-mod window;
 mod system;
-mod cursor;
+mod view;
 mod widget;
+mod window;
 
-use lazy_static::lazy_static;
 use config;
 use config::Config;
+use lazy_static::lazy_static;
 use std::env;
 use std::fs;
 use std::io::Read;

@@ -30,9 +30,11 @@ pub struct StatusBar {
 
 impl StatusBar {
     pub fn new() -> Self {
-        StatusBar { geometry: Default::default() }
+        StatusBar {
+            geometry: Default::default(),
+        }
     }
-    pub fn relayout(&mut self, geometry: Geometry, canvas: &Canvas) {
+    pub fn relayout(&mut self, geometry: Geometry, _canvas: &Canvas) {
         self.geometry = geometry;
     }
     pub fn min_size(&self, canvas: &Canvas) -> (f32, f32) {
@@ -82,15 +84,15 @@ pub trait WindowCmd {
 const FONT_SIZE: f32 = 14.0;
 
 impl<'v> EditorWindow<'v> {
-    pub fn new<P: AsRef<Path>>(geometry: Geometry, file: Option<P>) -> Self {
-        let mut w = EditorWindow::init(geometry);
+    pub fn new<P: AsRef<Path>>(file: Option<P>) -> Self {
+        let mut w = EditorWindow::init();
         w.add_new_view(file);
         w
     }
-    fn init(geometry: Geometry) -> Self {
+    fn init() -> Self {
         let views = Vec::new();
         let buffers = Vec::new();
-        let mut statusbar = StatusBar::new();
+        let statusbar = StatusBar::new();
         EditorWindow {
             views,
             buffers,
@@ -113,20 +115,13 @@ impl<'v> EditorWindow<'v> {
             Some(file) => Rc::new(RefCell::new(Buffer::from_file(file.as_ref()).expect("File not found"))),
         };
         self.buffers.push(b.clone());
-        let mut v = View::new(b.clone());
+        let v = View::new(b.clone());
 
         let viewid = self.views.len();
         self.views.push(v);
         self.current_view = viewid;
     }
 
-    // fn resize(&mut self, x: f32, y: f32, w: f32, h: f32) {
-    //     self.geometry.w = w;
-    //     self.geometry.h = h - self.geometry.font_height;
-    //     self.statusbar.geometry.y = self.geometry.h;
-    //     self.statusbar.geometry.w = w;
-    //     self.relayout();
-    // }
     fn relayout(&mut self, geometry: Geometry, canvas: &Canvas) {
         self.geometry = geometry;
 
@@ -141,7 +136,12 @@ impl<'v> EditorWindow<'v> {
             canvas,
         );
         for i in 0..self.views.len() {
-            let g = Geometry {x:0.0,y:0.0,w:self.geometry.w,h:self.geometry.h - status_height};
+            let g = Geometry {
+                x: 0.0,
+                y: 0.0,
+                w: self.geometry.w,
+                h: self.geometry.h - status_height,
+            };
             self.views[i].relayout(g, canvas);
         }
     }
@@ -166,15 +166,7 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
 
     let mut system_window = crate::system::System::new("None", width, height, FONT_SIZE);
 
-    let mut win = EditorWindow::new(
-        Geometry {
-            x: 0.0,
-            y: 0.0,
-            w: width,
-            h: height,
-        },
-        file,
-    );
+    let mut win = EditorWindow::new(file);
 
     // create view and windows cmd binding
     let mut view_cmd = commands::view::get_all();
@@ -267,7 +259,6 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
                     }
                     CursorMoved {
                         position: LogicalPosition { x, y },
-                        modifiers,
                         ..
                     } => {
                         mousex = x;
@@ -311,14 +302,22 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
                 .resize(size.to_physical(system_window.hidpi_factor()));
             width = system_window.log_width() as _;
             height = system_window.log_height() as _;
-            win.relayout(Geometry{x:0.0,y:0.0,w:width,h:height}, &system_window.canvas);
+            win.relayout(
+                Geometry {
+                    x: 0.0,
+                    y: 0.0,
+                    w: width,
+                    h: height,
+                },
+                &system_window.canvas,
+            );
             redraw = true;
         }
 
         // redraw only when needed
         if redraw {
             // ugly
-            win.relayout(win.geometry,&system_window.canvas);
+            win.relayout(win.geometry, &system_window.canvas);
 
             // clear
             let bg = STYLE.theme.settings.background.unwrap_or(highlighting::Color::BLACK);

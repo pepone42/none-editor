@@ -15,7 +15,7 @@ use crate::styling::STYLE;
 use crate::window::Geometry;
 use crate::SETTINGS;
 
-use crate::system::{Canvas,Font,FontType};
+use crate::system::{Canvas, Font, FontType};
 use nanovg::Color;
 
 #[derive(Debug, Clone, Copy)]
@@ -138,13 +138,15 @@ struct CharMetrics {
 
 impl From<Font> for CharMetrics {
     fn from(font: Font) -> Self {
-        let advance =
-        if let FontType::MonoSpaced(advance) = font.kind {
+        let advance = if let FontType::MonoSpaced(advance) = font.kind {
             advance
         } else {
             panic!("not supported");
         };
-        CharMetrics {advance, height: font.line_height}
+        CharMetrics {
+            advance,
+            height: font.line_height,
+        }
     }
 }
 
@@ -277,7 +279,7 @@ impl<'a> View<'a> {
             Some(ext) => SYNTAXSET.find_syntax_by_extension(&ext).unwrap_or(plain_text),
         };
         self.styling = Some(StylingCache::new(syntax));
-        let end = self.buffer.borrow().len_lines(); // self.viewport.line_end();
+        let end = self.buffer.borrow().len_lines();
         self.expand_styling_cache(end);
     }
 
@@ -307,30 +309,6 @@ impl<'a> View<'a> {
             style.expand(end, &self.buffer.borrow());
         }
     }
-
-    // pub fn edit(&mut self, r: Range<usize>, text: &str) {
-    //     let start = self.line_idx();
-    //     self.push_state();
-
-    //     // Clear selection if any
-    //     if let Some(r) = self.selection {
-    //         self.cursor.set_index(r.lower());
-    //         self.buffer.borrow_mut().remove(r);
-    //     }
-
-    //     if r.start != r.end {
-    //         self.cursor.set_index(r.start);
-    //         self.buffer.borrow_mut().remove(r.clone());
-    //     }
-    //     self.buffer.borrow_mut().insert(r.start, text);
-
-    //     self.cursor.set_index(r.start + text.chars().count());
-    //     self.clear_selection();
-    //     self.focus_on_cursor();
-
-    //     let end = self.viewport.line_end();
-    //     self.update_styling_cache(start..end);
-    // }
 
     /// insert the given char at the cursor position
     pub fn insert_char(&mut self, ch: char) {
@@ -470,12 +448,6 @@ impl<'a> View<'a> {
         self.cursor.get_col()
     }
 
-    // /// return the cursor position in line,col corrdinate
-    // pub fn cursor_as_point(&self) -> (usize, usize) {
-    //     //self.buffer.borrow().index_to_point(self.cursor.get_index())
-    //     (self.cursor.get_line(), self.cursor.get_col())
-    // }
-
     fn cursor_up(&mut self) {
         self.cursor.up(1);
     }
@@ -515,8 +487,6 @@ impl<'a> View<'a> {
 
     /// put the cursor at the begining of the line
     pub fn home(&mut self, expand_selection: bool) {
-        // let l = self.line_idx();
-        // self.cursor.set(self.buffer.borrow().line_to_char(l));
         self.cursor.goto_line_start();
         if expand_selection {
             self.expand_selection();
@@ -528,8 +498,6 @@ impl<'a> View<'a> {
 
     /// put the cursor at the end of the line
     pub fn end(&mut self, expand_selection: bool) {
-        // let l = self.line_idx();
-        // self.cursor.set(self.buffer.borrow().line_to_last_char(l));
         self.cursor.goto_line_end();
         if expand_selection {
             self.expand_selection();
@@ -538,17 +506,6 @@ impl<'a> View<'a> {
         }
         self.focus_on_cursor();
     }
-
-    // /// return the cursor position in number of chars from the begining of the buffer
-    // pub fn index(&self) -> usize {
-    //     self.cursor.get_index()
-    // }
-
-    // /// put the cursor at the given position
-    // pub fn set_index(&mut self, idx: usize) {
-    //     assert!(idx <= self.buffer.borrow().len_chars());
-    //     self.cursor.set(idx);
-    // }
 
     /// Set the cursor to the given pixel position
     pub fn click(&mut self, x: i32, y: i32, expand_selection: bool) {
@@ -578,7 +535,7 @@ impl<'a> View<'a> {
     }
 
     /// select the word when double clicked
-    pub fn double_click(&mut self, x: i32, y: i32) {
+    pub fn double_click(&mut self, _x: i32, _y: i32) {
         self.select_word_under_cursor();
     }
 
@@ -697,7 +654,7 @@ impl<'a> View<'a> {
             }
             last = width;
         }
-        if let Some(i) = indents.iter().max_by(|x,y| x.1.cmp(y.1)) {
+        if let Some(i) = indents.iter().max_by(|x, y| x.1.cmp(y.1)) {
             println!("largest {}", i.0);
             Indentation::Space(*i.0 as u32)
         } else {
@@ -742,7 +699,7 @@ impl<'a> View<'a> {
         let mut y = line_spacing;
 
         let tabsize: i32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
-        
+
         let first_visible_line = self.viewport.line_start;
         let first_visible_col = self.viewport.col_start;
         let page_len = self.viewport.heigth;
@@ -780,7 +737,7 @@ impl<'a> View<'a> {
                         current_col = nbspace;
                     }
                     '\0' => (),
-                    '\r' => (), //idx -= 1,
+                    '\r' => (),
                     '\n' => (),
                     // Bom hiding. TODO: rework
                     '\u{feff}' | '\u{fffe}' => (),
@@ -844,7 +801,6 @@ mod tests {
     use crate::view::View;
     use std::cell::RefCell;
     use std::rc::Rc;
-
 
     #[test]
     fn new_view() {
