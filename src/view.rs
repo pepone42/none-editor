@@ -20,10 +20,8 @@ use nanovg::Color;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Indentation {
-    Tab,
+    Tab(u32),
     Space(u32),
-    Mixed(u32),
-    Unknow,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -464,18 +462,19 @@ impl<'a> View<'a> {
 
     /// return the cursor position in line
     pub fn line_idx(&self) -> usize {
-        self.buffer.borrow().index_to_point(self.cursor.get_index()).0
+        self.cursor.get_line()
     }
 
     /// return the cursor position in column
     pub fn col_idx(&self) -> usize {
-        self.buffer.borrow().index_to_point(self.cursor.get_index()).1
+        self.cursor.get_col()
     }
 
-    /// return the cursor position in line,col corrdinate
-    pub fn cursor_as_point(&self) -> (usize, usize) {
-        self.buffer.borrow().index_to_point(self.cursor.get_index())
-    }
+    // /// return the cursor position in line,col corrdinate
+    // pub fn cursor_as_point(&self) -> (usize, usize) {
+    //     //self.buffer.borrow().index_to_point(self.cursor.get_index())
+    //     (self.cursor.get_line(), self.cursor.get_col())
+    // }
 
     fn cursor_up(&mut self) {
         self.cursor.up(1);
@@ -563,8 +562,13 @@ impl<'a> View<'a> {
             line = 0;
         }
 
-        let idx = self.buffer.borrow().point_to_index(line as _, col as _);
-        self.cursor.set_index(idx);
+        let p = crate::cursor::Point {
+            line: line as usize,
+            col: col as usize,
+            buffer: self.buffer.clone(),
+        };
+        let idx: crate::cursor::Index = p.into();
+        self.cursor.set_index(idx.index);
         if expand_selection {
             self.expand_selection();
         } else {
@@ -661,38 +665,45 @@ impl<'a> View<'a> {
     }
 
     pub fn detect_indentation(&self) -> Indentation {
+        // detect Tabs first. If the first char of a line is more often a Tab
+        // then we consider the indentation as tabulation.
         let b = self.buffer.borrow();
         let mut tab = 0;
-        let mut spaces = Vec::<u32>::new();
-        let _tab_width = 0;
-        let mut contigus_space = 0;
-
-        fn gcd(a: u32, b: u32) -> u32 {
-            if b == 0 {
-                b
-            } else {
-                gcd(b, a % b)
+        let mut space = 0;
+        for line in b.lines() {
+            match line.chars().next() {
+                Some(' ') => space += 1,
+                Some('\t') => tab += 1,
+                _ => (),
             }
         }
-
-        for l in b.lines().take(100) {
-            for c in l.chars() {
-                println!("{}", c);
-                match c {
-                    '\t' => {
-                        tab += 1;
-                        break;
-                    }
-                    ' ' => contigus_space += 1,
-                    _ => {
-                        if contigus_space > 0 {}
-                        spaces.push(contigus_space);
-                        contigus_space = 0;
-                    }
-                }
-            }
+        if tab > space {
+            let tabsize: u32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
+            return Indentation::Tab(tabsize);
         }
-        Indentation::Space(4)
+
+        // Algorythm from
+        // https://medium.com/firefox-developer-tools/detecting-code-indentation-eff3ed0fb56b
+        use std::collections::HashMap;
+        let mut indents = HashMap::new();
+        let mut last = 0;
+
+        for line in b.lines() {
+            let width = line.chars().take_while(|c| *c == ' ').count();
+            let indent = (width as isize - last as isize).abs();
+            if indent > 1 {
+                let i = indents.entry(indent).or_insert(0);
+                *i += 1;
+            }
+            last = width;
+        }
+        if let Some(i) = indents.iter().max_by(|x,y| x.1.cmp(y.1)) {
+            println!("largest {}", i.0);
+            Indentation::Space(*i.0 as u32)
+        } else {
+            let tabsize: u32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
+            Indentation::Space(tabsize)
+        }
     }
 
     /// move the view so that the cursor is visible
@@ -789,7 +800,8 @@ impl<'a> View<'a> {
 
         // Cursor
         let fg = STYLE.theme.settings.caret.unwrap_or(highlighting::Color::WHITE);
-        let (mut line, mut col) = self.cursor_as_point();
+        let (mut line, mut col) = (self.cursor.get_line(), self.cursor.get_col());
+
         if self.viewport.contain(line, col) {
             line -= first_visible_line;
             col -= first_visible_col;

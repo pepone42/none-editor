@@ -1,9 +1,11 @@
+use std::sync::Mutex;
 use lazy_static::lazy_static;
 use clipboard2::*;
 use crate::keybinding::KeyBinding;
 use crate::view::{Direction, View, ViewCmd};
 use crate::window::EditorWindow;
 use crate::window::WindowCmd;
+
 
 struct GenericViewCommand {
     name: &'static str,
@@ -106,7 +108,7 @@ impl WindowCmd for GenericWindowCommand {
 }
 
 lazy_static! {
-    pub static ref CLIPBOARD: SystemClipboard = SystemClipboard::new().unwrap();
+    pub static ref CLIPBOARD: Mutex<SystemClipboard> = Mutex::new(SystemClipboard::new().unwrap());
 }
 
 pub mod view {
@@ -122,7 +124,7 @@ pub mod view {
             &["Ctrl-X"],
             |v| {
                 if let Some(s) = v.get_selection() {
-                    CLIPBOARD.set_string_contents(s).unwrap();
+                    CLIPBOARD.lock().unwrap().set_string_contents(s).unwrap();
                     v.delete_at_cursor();
                 }
             },
@@ -133,7 +135,7 @@ pub mod view {
             &["Ctrl-C"],
             |v| {
                 if let Some(s) = v.get_selection() {
-                    CLIPBOARD.set_string_contents(s).unwrap();
+                    CLIPBOARD.lock().unwrap().set_string_contents(s).unwrap();
                 }
             },
         ));
@@ -142,7 +144,7 @@ pub mod view {
             "Paste the content of clipboard",
             &["Ctrl-V"],
             |v| {
-                let s = CLIPBOARD.get_string_contents().unwrap();
+                let s = CLIPBOARD.lock().unwrap().get_string_contents().unwrap();
                 v.insert(&s);
             },
         ));

@@ -1,6 +1,77 @@
 use crate::buffer::Buffer;
-use std::rc::Rc;
+use crate::SETTINGS;
 use std::cell::RefCell;
+use std::rc::Rc;
+
+#[derive(Debug, Clone)]
+pub struct Point {
+    pub line: usize,
+    pub col: usize,
+    pub buffer: Rc<RefCell<Buffer>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Index {
+    pub index: usize,
+    pub buffer: Rc<RefCell<Buffer>>,
+}
+
+impl Into<Index> for Point {
+    fn into(self) -> Index {
+        let tabsize: u32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
+        let index = self.buffer.borrow().line_to_char(self.line);
+        let mut col_idx = 0;
+        let mut col: u32 = 0;
+        for c in self.buffer.borrow().chars_on_line(self.line).take(self.col) {
+            match c {
+                '\t' => {
+                    col = ((col + tabsize) / tabsize) * tabsize;
+                }
+                '\r' | '\n' | '\0' => (),
+                // Bom hiding. TODO: rework
+                '\u{feff}' | '\u{fffe}' => (),
+                _ => {
+                    col += 1;
+                }
+            }
+            col_idx += 1;
+            if col as usize == self.col {
+                break;
+            }
+        }
+        Index {
+            index: index + col_idx,
+            buffer: self.buffer,
+        }
+    }
+}
+
+impl Into<Point> for Index {
+    fn into(self) -> Point {
+        let tabsize: u32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
+        let mut col = 0;
+        let line = self.buffer.borrow().char_to_line(self.index);
+        let maxc = self.index - self.buffer.borrow().line_to_char(line);
+        for c in self.buffer.borrow().chars_on_line(line).take(maxc) {
+            match c {
+                '\t' => {
+                    col = ((col + tabsize) / tabsize) * tabsize;
+                }
+                '\r' | '\n' | '\0' => (),
+                // Bom hiding. TODO: rework
+                '\u{feff}' | '\u{fffe}' => (),
+                _ => {
+                    col += 1;
+                }
+            }
+        }
+        Point {
+            line,
+            col: col as usize,
+            buffer: self.buffer,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Cursor {
@@ -24,20 +95,43 @@ impl Cursor {
         }
     }
 
+    fn line_last_col(&self, line: usize) -> usize {
+        let tabsize: usize = SETTINGS.read().unwrap().get("tabSize").unwrap();
+        let mut col: usize = 0;
+        //let line = self.buffer.borrow().char_to_line(line);
+        for c in self.buffer.borrow().chars_on_line(line) {
+            match c {
+                '\t' => {
+                    col = ((col + tabsize) / tabsize) * tabsize;
+                }
+                '\r' | '\n' | '\0' => (),
+                // Bom hiding. TODO: rework
+                '\u{feff}' | '\u{fffe}' => (),
+                _ => {
+                    col += 1;
+                }
+            }
+        }
+        col
+    }
+
     pub fn set_line(&mut self, line: usize) {
         use std::cmp::min;
-        self.line = min(line,self.buffer.borrow().len_lines() - 1);
-        
+        self.line = min(line, self.buffer.borrow().len_lines() - 1);
+
         // Update col if the virtual column index is too far
-        let line_len = self.buffer.borrow().line_len_no_eol(self.line);
-        if self.vcol > line_len {
-            self.col = line_len;
-        }
+        let line_last_col = self.line_last_col(self.line);
+        self.col = min(line_last_col,self.vcol);
 
         // Update index, and keep track of the last value;
-        let idx = self.buffer.borrow().point_to_index(self.line, self.vcol);
+        let p = Point {
+            line: self.line,
+            col: self.col,
+            buffer: self.buffer.clone(),
+        };
+        let idx: Index = p.into();
         self.previous_index = self.index;
-        self.index = idx;
+        self.index = idx.index;
     }
 
     pub fn set_index(&mut self, index: usize) {
@@ -47,13 +141,25 @@ impl Cursor {
 
         // Clamp if too far
         let len = self.buffer.borrow().len_chars();
-        self.index = min(index,len);
+        self.index = min(index, len);
 
         // Update line and column location
-        let (l, c) = self.buffer.borrow().index_to_point(self.index);
-        self.line = l;
-        self.col = c;
-        self.vcol = c;
+        let i = Index {
+            index: self.index,
+            buffer: self.buffer.clone(),
+        };
+        let p: Point = i.into();
+        self.line = p.line;
+        self.col = p.col;
+        self.vcol = p.col;
+    }
+
+    pub fn get_line(&self) -> usize {
+        self.line
+    }
+
+    pub fn get_col(&self) -> usize {
+        self.col
     }
 
     pub fn get_index(&self) -> usize {
@@ -115,6 +221,6 @@ impl Cursor {
 
     pub fn goto_line_end(&mut self) {
         let idx = self.buffer.borrow().line_to_last_char(self.line);
-        self.set_index(idx);    
+        self.set_index(idx);
     }
 }
