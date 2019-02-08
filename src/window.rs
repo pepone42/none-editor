@@ -165,8 +165,9 @@ impl<'v> EditorWindow<'v> {
 pub fn start<P: AsRef<Path>>(file: Option<P>) {
     let mut width = super::SETTINGS.read().unwrap().get::<f32>("width").unwrap();
     let mut height = super::SETTINGS.read().unwrap().get::<f32>("height").unwrap();
+    let font_size = super::SETTINGS.read().unwrap().get::<f32>("fontsize").unwrap_or(FONT_SIZE);
 
-    let mut system_window = crate::system::System::new("None", width, height, FONT_SIZE);
+    let mut system_window = crate::system::System::new("None", width, height, font_size);
 
     let mut win = EditorWindow::new(file);
 
