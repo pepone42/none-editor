@@ -11,7 +11,7 @@ use crate::commands;
 use crate::keybinding;
 use crate::keybinding::KeyBinding;
 use crate::system::Canvas;
-use crate::view::{Direction, View};
+use crate::view::{Direction, View, Indentation};
 use nanovg::Color;
 
 use crate::styling::STYLE;
@@ -49,6 +49,7 @@ impl StatusBar {
         encoding: &str,
         syntax: &str,
         is_dirty: bool,
+        indentation: Indentation,
     ) {
         let bg_color = STYLE.theme.settings.foreground.unwrap_or(highlighting::Color::WHITE);
         let fg_color = STYLE.theme.settings.background.unwrap_or(highlighting::Color::BLACK);
@@ -61,7 +62,7 @@ impl StatusBar {
         canvas.move_to(self.geometry.x, self.geometry.y + self.geometry.h - 1.0);
 
         canvas.draw_str(
-            &format! {"{}{} | {} | {} | ({},{})",filename,if is_dirty {"*"} else {""}, syntax, encoding, line, col},
+            &format! {"{}{} | {} | {} | {} | ({},{})",filename,if is_dirty {"*"} else {""}, syntax, encoding, indentation, line, col},
         );
     }
 }
@@ -156,6 +157,7 @@ impl<'v> EditorWindow<'v> {
             v.get_encoding(),
             v.get_syntax(),
             v.is_dirty(),
+            v.get_indentation(),
         );
     }
 }

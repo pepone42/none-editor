@@ -24,6 +24,17 @@ pub enum Indentation {
     Space(u32),
 }
 
+impl std::fmt::Display for Indentation {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Indentation::Tab(x) => write!(f, "Tabs : {}", x),
+            Indentation::Space(x) => write!(f, "Spaces : {}", x)
+        }
+    }
+}
+
+
+
 #[derive(Debug, Clone, Copy)]
 pub enum LineFeed {
     CR,
@@ -182,6 +193,7 @@ pub struct View<'a> {
     char_metrics: CharMetrics,
     styling: Option<StylingCache<'a>>,
     name: String,
+    indentation: Indentation,
 }
 
 impl<'a> View<'a> {
@@ -198,10 +210,12 @@ impl<'a> View<'a> {
             char_metrics: Default::default(),
             styling: None,
             name: String::new(), // TODO: useless string allocation
+            indentation: Indentation::Tab(42),
         };
         v.update_name();
         v.detect_linefeed();
         v.detect_syntax();
+        v.detect_indentation();
         v
     }
 
@@ -292,6 +306,10 @@ impl<'a> View<'a> {
     }
     pub fn is_dirty(&self) -> bool {
         self.buffer.borrow().is_dirty()
+    }
+
+    pub fn get_indentation(&self) -> Indentation {
+        self.indentation
     }
 
     /// get the buffer encoding
@@ -621,7 +639,7 @@ impl<'a> View<'a> {
         }
     }
 
-    pub fn detect_indentation(&self) -> Indentation {
+    pub fn detect_indentation(&mut self) {
         // detect Tabs first. If the first char of a line is more often a Tab
         // then we consider the indentation as tabulation.
         let b = self.buffer.borrow();
@@ -636,7 +654,8 @@ impl<'a> View<'a> {
         }
         if tab > space {
             let tabsize: u32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
-            return Indentation::Tab(tabsize);
+            self.indentation = Indentation::Tab(tabsize);
+            return;
         }
 
         // Algorythm from
@@ -655,11 +674,10 @@ impl<'a> View<'a> {
             last = width;
         }
         if let Some(i) = indents.iter().max_by(|x, y| x.1.cmp(y.1)) {
-            println!("largest {}", i.0);
-            Indentation::Space(*i.0 as u32)
+            self.indentation = Indentation::Space(*i.0 as u32)
         } else {
             let tabsize: u32 = SETTINGS.read().unwrap().get("tabSize").unwrap();
-            Indentation::Space(tabsize)
+            self.indentation = Indentation::Space(tabsize)
         }
     }
 
