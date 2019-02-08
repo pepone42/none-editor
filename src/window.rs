@@ -59,7 +59,7 @@ impl StatusBar {
         canvas.draw_rect(self.geometry.w, self.geometry.h);
         canvas.set_color(Color::from_rgb(fg_color.r, fg_color.g, fg_color.b));
 
-        canvas.move_to(self.geometry.x, self.geometry.y + self.geometry.h - 1.0);
+        canvas.move_to(self.geometry.x, self.geometry.y + self.geometry.h + canvas.fonts["mono"].descender);
 
         canvas.draw_str(
             &format! {"{}{} | {} | {} | {} | ({},{})",filename,if is_dirty {"*"} else {""}, syntax, encoding, indentation, line, col},
