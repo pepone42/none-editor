@@ -107,7 +107,7 @@ impl System {
             .build()
             .expect("Initialization of NanoVG failed!");
 
-        let mono_font = nanovg::Font::from_memory(&nvgcontext, "Mono", include_bytes!("monofont/UbuntuMono-B.ttf"))
+        let mono_font = nanovg::Font::from_memory(&nvgcontext, "Mono", include_bytes!("monofont/Inconsolata-Bold.ttf"))
             .expect("Failed to load font");
 
         let text_option = nanovg::TextOptions {
