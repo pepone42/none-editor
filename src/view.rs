@@ -28,12 +28,10 @@ impl std::fmt::Display for Indentation {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Indentation::Tab(x) => write!(f, "Tabs : {}", x),
-            Indentation::Space(x) => write!(f, "Spaces : {}", x)
+            Indentation::Space(x) => write!(f, "Spaces : {}", x),
         }
     }
 }
-
-
 
 #[derive(Debug, Clone, Copy)]
 pub enum LineFeed {
@@ -163,6 +161,8 @@ impl From<Font> for CharMetrics {
 
 #[derive(Debug, Clone, Copy, Default)]
 struct Viewport {
+    dx: f32,
+    dy: f32,
     line_start: usize,
     heigth: usize,
     col_start: usize,
@@ -580,22 +580,19 @@ impl<'a> View<'a> {
     }
 
     /// scroll the view in the given direction
-    pub fn scroll(&mut self, dir: Direction, amount: i32) {
-        for _ in 0..amount {
-            match dir {
-                Direction::Up => {
-                    if self.viewport.line_start > 0 {
-                        self.viewport.line_start -= 1;
-                    }
-                }
-                Direction::Down => {
-                    if self.viewport.line_start < self.buffer.borrow().len_lines() {
-                        self.viewport.line_start += 1;
-                    }
-                }
-                _ => (),
-            }
+    pub fn scroll(&mut self, dx: f32, dy: f32) {
+        let dy = dy * self.char_metrics.height;
+        let max_height = self.char_metrics.height * (self.buffer.borrow().len_lines() as f32);
+        self.viewport.dy -= dy;
+
+        if self.viewport.dy.is_sign_negative() {
+            self.viewport.dy = 0.0;
         }
+        if (max_height - self.viewport.dy).is_sign_negative() {
+            self.viewport.dy = max_height;
+        }
+
+        self.viewport.line_start = (self.viewport.dy / self.char_metrics.height).ceil() as usize;
     }
 
     /// Detect the carriage return type of the buffer

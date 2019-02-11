@@ -11,7 +11,7 @@ use crate::commands;
 use crate::keybinding;
 use crate::keybinding::KeyBinding;
 use crate::system::Canvas;
-use crate::view::{Direction, View, Indentation};
+use crate::view::{Direction, Indentation, View};
 use nanovg::Color;
 
 use crate::styling::STYLE;
@@ -59,7 +59,10 @@ impl StatusBar {
         canvas.draw_rect(self.geometry.w, self.geometry.h);
         canvas.set_color(Color::from_rgb(fg_color.r, fg_color.g, fg_color.b));
 
-        canvas.move_to(self.geometry.x, self.geometry.y + self.geometry.h + canvas.fonts["mono"].descender);
+        canvas.move_to(
+            self.geometry.x,
+            self.geometry.y + self.geometry.h + canvas.fonts["mono"].descender,
+        );
 
         canvas.draw_str(
             &format! {"{}{} | {} | {} | {} | ({},{})",filename,if is_dirty {"*"} else {""}, syntax, encoding, indentation, line, col},
@@ -165,7 +168,11 @@ impl<'v> EditorWindow<'v> {
 pub fn start<P: AsRef<Path>>(file: Option<P>) {
     let mut width = super::SETTINGS.read().unwrap().get::<f32>("width").unwrap();
     let mut height = super::SETTINGS.read().unwrap().get::<f32>("height").unwrap();
-    let font_size = super::SETTINGS.read().unwrap().get::<f32>("fontsize").unwrap_or(FONT_SIZE);
+    let font_size = super::SETTINGS
+        .read()
+        .unwrap()
+        .get::<f32>("fontsize")
+        .unwrap_or(FONT_SIZE);
 
     let mut system_window = crate::system::System::new("None", width, height, font_size);
 
@@ -249,15 +256,10 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
                         }
                     }
                     MouseWheel {
-                        delta: MouseScrollDelta::LineDelta(_, y),
+                        delta: MouseScrollDelta::LineDelta(x, y),
                         ..
                     } => {
-                        let y = y as i32;
-                        if y > 0 {
-                            win.views[win.current_view].scroll(Direction::Up, y * 3);
-                        } else {
-                            win.views[win.current_view].scroll(Direction::Down, -y * 3);
-                        }
+                        win.views[win.current_view].scroll(x * 3.0, y * 3.0);
                         redraw = true;
                     }
                     CursorMoved {
