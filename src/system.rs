@@ -97,6 +97,9 @@ impl System {
         let window = glutin::GlWindow::new(window, context, &events_loop).unwrap();
         window.set_cursor(glutin::MouseCursor::Default);
 
+        // let (width: u32, height: u32) = window.get_inner_size().unwrap().into();
+        // //let (width, height) = (width as i32, height as i32);
+
         unsafe {
             window.make_current().unwrap();
             gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
@@ -201,13 +204,11 @@ impl System {
         let font_metrics = self.canvas.fonts["mono"];
         let mut text_option = self.text_option;
 
-        let phy_width = self.phy_width();
-        let phy_height = self.phy_height();
+        let log_width = self.log_width();
+        let log_height = self.log_height();
 
-        self.nvgcontext.frame(
-            (self.log_width() as _, self.log_height() as _),
-            self.hidpi_factor() as _,
-            |frame| {
+        self.nvgcontext
+            .frame((log_width as _, log_height as _), self.hidpi_factor() as _, |frame| {
                 for cmd in &self.canvas.cmdlist {
                     match *cmd {
                         DisplayList::Color(col) => color = col,
@@ -238,19 +239,33 @@ impl System {
                                 unimplemented!();
                             }
                         }
-                        DisplayList::Clear => unsafe {
-                            gl::ClearColor(color.red(), color.green(), color.blue(), color.alpha());
-                            gl::Viewport(0, 0, phy_width as _, phy_height as _);
-                            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT | gl::STENCIL_BUFFER_BIT);
-                        },
+                        DisplayList::Clear => {
+                            frame.path(
+                                |p| {
+                                    p.rect((0.0, 0.0), (log_width as _, log_height as _));
+                                    p.fill(color, Default::default());
+                                },
+                                Default::default(),
+                            );
+                        }
                         DisplayList::Font(f) => {
                             font = nanovg::Font::find(&self.nvgcontext, f).unwrap();
                         }
                     }
                 }
-            },
-        );
+            });
     }
+
+    /// Clear the screen
+    pub fn clear(&mut self) {
+        let (width, height) : (u32,u32) = self.window.get_inner_size().unwrap().into();
+        unsafe {
+            gl::Viewport(0, 0, width as _, height as _);
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT | gl::STENCIL_BUFFER_BIT);
+        }
+    }
+
+    /// swap buffers
     pub fn present(&mut self) {
         self.window.swap_buffers().unwrap();
     }

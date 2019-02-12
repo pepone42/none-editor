@@ -327,6 +327,7 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
             // clear
             let bg = STYLE.theme.settings.background.unwrap_or(highlighting::Color::BLACK);
 
+            system_window.clear();
             system_window.canvas.clear(nanovg::Color::from_rgb(bg.r, bg.g, bg.b));
             win.draw(&mut system_window.canvas);
             system_window.render();
