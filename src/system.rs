@@ -88,10 +88,11 @@ pub struct System {
 
 impl System {
     pub fn new(title: &str, width: f32, height: f32, font_size: f32) -> Self {
+        let log_size = glutin::dpi::LogicalSize::new(width as _, height as _);
         let events_loop = glutin::EventsLoop::new();
         let window = glutin::WindowBuilder::new()
             .with_title(title)
-            .with_dimensions(glutin::dpi::LogicalSize::new(width as _, height as _));
+            .with_dimensions(log_size);
 
         let context = glutin::ContextBuilder::new().with_vsync(true).with_srgb(true);
         let window = glutin::GlWindow::new(window, context, &events_loop).unwrap();
@@ -137,8 +138,8 @@ impl System {
 
         nvgcontext.frame(
             (
-                window.get_inner_size().unwrap().width as _,
-                window.get_inner_size().unwrap().height as _,
+                log_size.width as _,
+                log_size.height as _,
             ),
             hidpi_factor as _,
             |frame| {
@@ -258,7 +259,8 @@ impl System {
 
     /// Clear the screen
     pub fn clear(&mut self) {
-        let (width, height) : (u32,u32) = self.window.get_inner_size().unwrap().into();
+        // Without physical size, glviewport does not work correctly when hdpi_foctor != 1.0
+        let (width, height) : (u32,u32) = self.window.get_inner_size().unwrap().to_physical(self.hidpi_factor()).into();
         unsafe {
             gl::Viewport(0, 0, width as _, height as _);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT | gl::STENCIL_BUFFER_BIT);
