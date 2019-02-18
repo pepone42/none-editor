@@ -90,16 +90,11 @@ impl System {
     pub fn new(title: &str, width: f32, height: f32, font_size: f32) -> Self {
         let log_size = glutin::dpi::LogicalSize::new(width as _, height as _);
         let events_loop = glutin::EventsLoop::new();
-        let window = glutin::WindowBuilder::new()
-            .with_title(title)
-            .with_dimensions(log_size);
+        let window = glutin::WindowBuilder::new().with_title(title).with_dimensions(log_size);
 
         let context = glutin::ContextBuilder::new().with_vsync(true).with_srgb(true);
         let window = glutin::GlWindow::new(window, context, &events_loop).unwrap();
         window.set_cursor(glutin::MouseCursor::Default);
-
-        // let (width: u32, height: u32) = window.get_inner_size().unwrap().into();
-        // //let (width, height) = (width as i32, height as i32);
 
         unsafe {
             window.make_current().unwrap();
@@ -122,12 +117,6 @@ impl System {
         };
 
         let hidpi_factor = window.get_current_monitor().get_hidpi_factor();
-        // println!(
-        //     "{:?} {:?} {:?}",
-        //     window.get_inner_size(),
-        //     hidpi_factor,
-        //     window.get_inner_size().unwrap().to_physical(hidpi_factor)
-        // );
 
         let mut advance: f32 = 0.0;
         let mut text_metrics: nanovg::TextMetrics = nanovg::TextMetrics {
@@ -137,10 +126,7 @@ impl System {
         };
 
         nvgcontext.frame(
-            (
-                log_size.width as _,
-                log_size.height as _,
-            ),
+            (log_size.width as _, log_size.height as _),
             hidpi_factor as _,
             |frame| {
                 advance = frame.text_bounds(mono_font, (0.0, 0.0), "_", text_option).0;
@@ -260,7 +246,12 @@ impl System {
     /// Clear the screen
     pub fn clear(&mut self) {
         // Without physical size, glviewport does not work correctly when hdpi_foctor != 1.0
-        let (width, height) : (u32,u32) = self.window.get_inner_size().unwrap().to_physical(self.hidpi_factor()).into();
+        let (width, height): (u32, u32) = self
+            .window
+            .get_inner_size()
+            .unwrap()
+            .to_physical(self.hidpi_factor())
+            .into();
         unsafe {
             gl::Viewport(0, 0, width as _, height as _);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT | gl::STENCIL_BUFFER_BIT);
