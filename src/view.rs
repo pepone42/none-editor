@@ -527,7 +527,6 @@ impl<'a> View<'a> {
 
     /// Set the cursor to the given pixel position
     pub fn click(&mut self, x: i32, y: i32, expand_selection: bool) {
-        dbg!((x,y));
         let mut col = (x as f32 / self.char_metrics.advance + self.viewport.col_start as f32) as i32;
         let mut line = (y as f32 / self.char_metrics.height + self.viewport.line_start as f32) as i32;
 
