@@ -5,9 +5,47 @@ use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub struct Point {
-    pub line: usize,
-    pub col: usize,
-    pub buffer: Rc<RefCell<Buffer>>,
+    line: usize,
+    col: usize,
+    buffer: Rc<RefCell<Buffer>>,
+}
+
+fn line_last_col(line: usize,buffer: &Buffer) -> usize {
+    let tabsize: usize = SETTINGS.read().unwrap().get("tabSize").unwrap();
+    let mut col: usize = 0;
+    //let line = self.buffer.borrow().char_to_line(line);
+    for c in buffer.chars_on_line(line) {
+        match c {
+            '\t' => {
+                col = ((col + tabsize) / tabsize) * tabsize;
+            }
+            '\r' | '\n' | '\0' => (),
+            // Bom hiding. TODO: rework
+            '\u{feff}' | '\u{fffe}' => (),
+            _ => {
+                col += 1;
+            }
+        }
+    }
+    col
+} 
+
+impl Point {
+    pub fn new(line: usize, col: usize, buffer: Rc<RefCell<Buffer>>) -> Self {
+        // Clamp line
+        use std::cmp::min;
+        let line = min(line, buffer.borrow().len_lines() - 1);
+
+        // Clamp col
+        let line_last_col = line_last_col(line,&buffer.borrow());
+        let col = min(line_last_col, col);
+
+        Point {
+            line,
+            col,
+            buffer: buffer,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -116,19 +154,9 @@ impl Cursor {
     }
 
     pub fn set_line(&mut self, line: usize) {
-        use std::cmp::min;
-        self.line = min(line, self.buffer.borrow().len_lines() - 1);
-
-        // Update col if the virtual column index is too far
-        let line_last_col = self.line_last_col(self.line);
-        self.col = min(line_last_col, self.vcol);
-
-        // Update index, and keep track of the last value;
-        let p = Point {
-            line: self.line,
-            col: self.col,
-            buffer: self.buffer.clone(),
-        };
+        let p = Point::new(line, self.vcol, self.buffer.clone());
+        self.line = p.line;
+        self.col = p.col;
         let idx: Index = p.into();
         self.previous_index = self.index;
         self.index = idx.index;

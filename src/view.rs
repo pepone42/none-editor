@@ -537,12 +537,13 @@ impl<'a> View<'a> {
         if line < 0 {
             line = 0;
         }
+        let line=std::cmp::min(line as usize,self.buffer.borrow().len_lines());
 
-        let p = crate::cursor::Point {
-            line: line as usize,
-            col: col as usize,
-            buffer: self.buffer.clone(),
-        };
+        let p = crate::cursor::Point::new(
+            line as usize,
+            col as usize,
+            self.buffer.clone()
+        );
         let idx: crate::cursor::Index = p.into();
         self.cursor.set_index(idx.index);
         if expand_selection {
