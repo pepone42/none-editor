@@ -1,3 +1,4 @@
+use glutin::WindowEvent;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::Path;
@@ -10,11 +11,19 @@ use crate::buffer::Buffer;
 use crate::commands;
 use crate::keybinding;
 use crate::keybinding::KeyBinding;
+use crate::palette::Palette;
 use crate::system::Canvas;
 use crate::view::{Direction, Indentation, View};
 use nanovg::Color;
 
 use crate::styling::STYLE;
+
+pub enum EventResult<T> {
+    Redraw,
+    Continue,
+    Cancel,
+    Ok(T),
+}
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Geometry {
@@ -76,6 +85,7 @@ pub struct EditorWindow<'v> {
     geometry: Geometry,
     current_view: usize,
     statusbar: StatusBar,
+    palette: Option<Palette>,
 }
 
 pub trait WindowCmd {
@@ -103,6 +113,7 @@ impl<'v> EditorWindow<'v> {
             geometry: Default::default(),
             current_view: 0,
             statusbar,
+            palette: None,
         }
     }
 
@@ -163,6 +174,9 @@ impl<'v> EditorWindow<'v> {
             v.get_indentation(),
         );
     }
+    pub fn process_event(&mut self, event: &WindowEvent) -> EventResult<()> {
+        EventResult::Continue
+    }
 }
 
 pub fn start<P: AsRef<Path>>(file: Option<P>) {
@@ -208,96 +222,128 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
     let mut mousey = 0.0;
     let mut mouse_state = MouseState::Released;
     let mut last_click_instant = Instant::now();
+    let mut palette: Option<Palette> = None;
     while running {
         let mut resized: Option<glutin::dpi::LogicalSize> = None;
         system_window.events_loop.poll_events(|event| {
             use glutin::{dpi::LogicalPosition, ElementState, Event, MouseButton, MouseScrollDelta, WindowEvent::*};
 
             if let Event::WindowEvent { event, .. } = event {
-                match event {
-                    Refresh => redraw = true,
-                    CloseRequested => running = false,
-                    Resized(size) => {
-                        resized = Some(size);
+                if let Some(ref mut p) = palette {
+                    match p.process_event(&event) {
+                        EventResult::Continue => (),
+                        EventResult::Cancel => {palette = None;redraw = true},
+                        EventResult::Ok(id) => {
+                            dbg!(id);
+                            palette = None;
+                            redraw = true
+                        }
+                        EventResult::Redraw => redraw = true,
                     }
-                    ReceivedCharacter(ch) => match ch as u32 {
-                        0x00...0x1F => (),
-                        0x80...0x9F => (),
-                        0x7F => (),
-                        _ => {
-                            win.views[win.current_view].insert_char(ch);
+                } else {
+                    match event {
+                        Refresh => redraw = true,
+                        CloseRequested => running = false,
+                        Resized(size) => {
+                            resized = Some(size);
+                        }
+                        ReceivedCharacter(ch) => match ch as u32 {
+                            0x00...0x1F => (),
+                            0x80...0x9F => (),
+                            0x7F => (),
+                            _ => {
+                                win.views[win.current_view].insert_char(ch);
+                                redraw = true;
+                            }
+                        },
+                        KeyboardInput {
+                            input:
+                                glutin::KeyboardInput {
+                                    state: glutin::ElementState::Pressed,
+                                    modifiers:
+                                        glutin::ModifiersState {
+                                            ctrl: true,
+                                            shift: true,
+                                            ..
+                                        },
+                                    virtual_keycode: Some(glutin::VirtualKeyCode::P),
+                                    ..
+                                },
+                            ..
+                        } => {
+                            let cmd = vec!["toto".into(), "tata".into()];
+                            palette = Some(Palette::new(cmd));
+                        }
+                        KeyboardInput { input, .. } => {
+                            if input.state == glutin::ElementState::Pressed {
+                                if let Some(k) = input.virtual_keycode {
+                                    let mut km = keybinding::Mod::NONE;
+                                    if input.modifiers.ctrl {
+                                        km |= keybinding::Mod::CTRL
+                                    }
+                                    if input.modifiers.alt {
+                                        km |= keybinding::Mod::ALT
+                                    }
+                                    if input.modifiers.shift {
+                                        km |= keybinding::Mod::SHIFT
+                                    }
+                                    if input.modifiers.logo {
+                                        km |= keybinding::Mod::LOGO
+                                    }
+                                    if let Some(cmdid) = view_cmd_keybinding.get(&KeyBinding::new(k, km)) {
+                                        view_cmd[*cmdid].as_mut().run(&mut win.views[win.current_view]);
+                                    }
+                                    if let Some(cmdid) = win_cmd_keybinding.get(&KeyBinding::new(k, km)) {
+                                        win_cmd[*cmdid].as_mut().run(&mut win);
+                                    }
+                                    redraw = true;
+                                }
+                            }
+                        }
+                        MouseWheel {
+                            delta: MouseScrollDelta::LineDelta(x, y),
+                            ..
+                        } => {
+                            win.views[win.current_view].scroll(x * 3.0, y * 3.0);
                             redraw = true;
                         }
-                    },
-                    KeyboardInput { input, .. } => {
-                        if input.state == glutin::ElementState::Pressed {
-                            if let Some(k) = input.virtual_keycode {
-                                let mut km = keybinding::Mod::NONE;
-                                if input.modifiers.ctrl {
-                                    km |= keybinding::Mod::CTRL
-                                }
-                                if input.modifiers.alt {
-                                    km |= keybinding::Mod::ALT
-                                }
-                                if input.modifiers.shift {
-                                    km |= keybinding::Mod::SHIFT
-                                }
-                                if input.modifiers.logo {
-                                    km |= keybinding::Mod::LOGO
-                                }
-                                if let Some(cmdid) = view_cmd_keybinding.get(&KeyBinding::new(k, km)) {
-                                    view_cmd[*cmdid].as_mut().run(&mut win.views[win.current_view]);
-                                }
-                                if let Some(cmdid) = win_cmd_keybinding.get(&KeyBinding::new(k, km)) {
-                                    win_cmd[*cmdid].as_mut().run(&mut win);
-                                }
+                        CursorMoved {
+                            position: LogicalPosition { x, y },
+                            ..
+                        } => {
+                            mousex = x;
+                            mousey = y;
+                            if mouse_state == MouseState::Clicked {
+                                win.views[win.current_view].click(mousex as _, mousey as _, true);
                                 redraw = true;
                             }
                         }
-                    }
-                    MouseWheel {
-                        delta: MouseScrollDelta::LineDelta(x, y),
-                        ..
-                    } => {
-                        win.views[win.current_view].scroll(x * 3.0, y * 3.0);
-                        redraw = true;
-                    }
-                    CursorMoved {
-                        position: LogicalPosition { x, y },
-                        ..
-                    } => {
-                        mousex = x;
-                        mousey = y;
-                        if mouse_state == MouseState::Clicked {
-                            win.views[win.current_view].click(mousex as _, mousey as _, true);
+                        MouseInput {
+                            button: MouseButton::Left,
+                            state: ElementState::Pressed,
+                            modifiers,
+                            ..
+                        } => {
+                            let duration = last_click_instant.elapsed();
+                            if duration < Duration::from_millis(500) {
+                                mouse_state = MouseState::DoubleClicked;
+                                win.views[win.current_view].double_click(mousex as _, mousey as _);
+                            } else {
+                                mouse_state = MouseState::Clicked;
+                                win.views[win.current_view].click(mousex as _, mousey as _, modifiers.shift);
+                            }
+                            last_click_instant = Instant::now();
                             redraw = true;
                         }
-                    }
-                    MouseInput {
-                        button: MouseButton::Left,
-                        state: ElementState::Pressed,
-                        modifiers,
-                        ..
-                    } => {
-                        let duration = last_click_instant.elapsed();
-                        if duration < Duration::from_millis(500) {
-                            mouse_state = MouseState::DoubleClicked;
-                            win.views[win.current_view].double_click(mousex as _, mousey as _);
-                        } else {
-                            mouse_state = MouseState::Clicked;
-                            win.views[win.current_view].click(mousex as _, mousey as _, modifiers.shift);
+                        MouseInput {
+                            button: MouseButton::Left,
+                            state: ElementState::Released,
+                            ..
+                        } => {
+                            mouse_state = MouseState::Released;
                         }
-                        last_click_instant = Instant::now();
-                        redraw = true;
+                        _ => {}
                     }
-                    MouseInput {
-                        button: MouseButton::Left,
-                        state: ElementState::Released,
-                        ..
-                    } => {
-                        mouse_state = MouseState::Released;
-                    }
-                    _ => {}
                 }
             }
         });
@@ -330,6 +376,11 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
             system_window.clear();
             system_window.canvas.clear(nanovg::Color::from_rgb(bg.r, bg.g, bg.b));
             win.draw(&mut system_window.canvas);
+
+            if let Some(ref mut p) = palette {
+                p.draw(&mut system_window.canvas);
+            }
+
             system_window.render();
             system_window.present();
         } else {

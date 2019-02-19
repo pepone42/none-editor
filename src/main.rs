@@ -7,6 +7,7 @@ mod system;
 mod view;
 mod widget;
 mod window;
+mod palette;
 
 use config;
 use config::Config;
