@@ -527,8 +527,8 @@ impl<'a> View<'a> {
 
     /// Set the cursor to the given pixel position
     pub fn click(&mut self, x: i32, y: i32, expand_selection: bool) {
-        let mut col = x / self.char_metrics.advance as i32 + self.viewport.col_start as i32;
-        let mut line = y / self.char_metrics.height as i32 + self.viewport.line_start as i32;
+        let mut col = (x as f32 / self.char_metrics.advance + self.viewport.col_start as f32) as i32;
+        let mut line = (y as f32 / self.char_metrics.height + self.viewport.line_start as f32) as i32;
 
         if col < 0 {
             col = 0;
@@ -536,12 +536,13 @@ impl<'a> View<'a> {
         if line < 0 {
             line = 0;
         }
+        let line=std::cmp::min(line as usize,self.buffer.borrow().len_lines());
 
-        let p = crate::cursor::Point {
-            line: line as usize,
-            col: col as usize,
-            buffer: self.buffer.clone(),
-        };
+        let p = crate::cursor::Point::new(
+            line as usize,
+            col as usize,
+            self.buffer.clone()
+        );
         let idx: crate::cursor::Index = p.into();
         self.cursor.set_index(idx.index);
         if expand_selection {
