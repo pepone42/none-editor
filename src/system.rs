@@ -1,6 +1,5 @@
 use gl;
 use glutin;
-use glutin::GlContext;
 use nanovg;
 use std::collections::HashMap;
 
@@ -80,7 +79,7 @@ impl Canvas {
 
 pub struct System {
     pub events_loop: glutin::EventsLoop,
-    pub window: glutin::GlWindow,
+    pub window_ctx: glutin::WindowedContext<glutin::PossiblyCurrent>,
     nvgcontext: nanovg::Context,
     text_option: nanovg::TextOptions,
     pub canvas: Canvas,
@@ -92,19 +91,22 @@ impl System {
         let events_loop = glutin::EventsLoop::new();
         let window = glutin::WindowBuilder::new().with_title(title).with_dimensions(log_size);
 
-        let context = glutin::ContextBuilder::new().with_vsync(true).with_srgb(true);
-        let window = glutin::GlWindow::new(window, context, &events_loop).unwrap();
+        let window_ctx = glutin::ContextBuilder::new().with_vsync(true).with_srgb(true).build_windowed(window, &events_loop).unwrap();
+        
+        let window_ctx = unsafe { window_ctx.make_current().unwrap()};
+        let window = window_ctx.window();
+        //let window = glutin::GlWindow::new(window, context, &events_loop).unwrap();
         window.set_cursor(glutin::MouseCursor::Default);
 
         unsafe {
-            window.make_current().unwrap();
-            gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
+            gl::load_with(|symbol| window_ctx.get_proc_address(symbol) as *const _);
             gl::ClearColor(0.0, 0.0, 0.0, 1.0);
         }
 
         let nvgcontext = nanovg::ContextBuilder::new()
             .build()
             .expect("Initialization of NanoVG failed!");
+
 
         let mono_font = nanovg::Font::from_memory(&nvgcontext, "Mono", include_bytes!("monofont/Inconsolata-Bold.ttf"))
             .expect("Failed to load font");
@@ -146,7 +148,7 @@ impl System {
 
         System {
             events_loop,
-            window,
+            window_ctx,
             nvgcontext,
             text_option,
             canvas,
@@ -154,19 +156,19 @@ impl System {
     }
 
     pub fn log_width(&self) -> f64 {
-        self.window.get_inner_size().unwrap().width
+        self.window_ctx.window().get_inner_size().unwrap().width
     }
 
     pub fn log_height(&self) -> f64 {
-        self.window.get_inner_size().unwrap().height
+        self.window_ctx.window().get_inner_size().unwrap().height
     }
 
     pub fn hidpi_factor(&self) -> f64 {
-        self.window.get_current_monitor().get_hidpi_factor()
+        self.window_ctx.window().get_current_monitor().get_hidpi_factor()
     }
 
     fn phy_width(&self) -> f64 {
-        self.window
+        self.window_ctx.window()
             .get_inner_size()
             .unwrap()
             .to_physical(self.hidpi_factor())
@@ -174,7 +176,7 @@ impl System {
     }
 
     fn phy_height(&self) -> f64 {
-        self.window
+        self.window_ctx.window()
             .get_inner_size()
             .unwrap()
             .to_physical(self.hidpi_factor())
@@ -247,7 +249,7 @@ impl System {
     pub fn clear(&mut self) {
         // Without physical size, glviewport does not work correctly when hdpi_foctor != 1.0
         let (width, height): (u32, u32) = self
-            .window
+            .window_ctx.window()
             .get_inner_size()
             .unwrap()
             .to_physical(self.hidpi_factor())
@@ -260,6 +262,6 @@ impl System {
 
     /// swap buffers
     pub fn present(&mut self) {
-        self.window.swap_buffers().unwrap();
+        self.window_ctx.swap_buffers().unwrap();
     }
 }

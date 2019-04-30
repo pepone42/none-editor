@@ -349,7 +349,7 @@ pub fn start<P: AsRef<Path>>(file: Option<P>) {
         });
         if let Some(size) = resized {
             system_window
-                .window
+                .window_ctx
                 .resize(size.to_physical(system_window.hidpi_factor()));
             width = system_window.log_width() as _;
             height = system_window.log_height() as _;
